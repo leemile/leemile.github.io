@@ -49,27 +49,25 @@
 
       <a-entity camera></a-entity>
     </a-scene>
-
     <script>
-      const total = 23; // 프레임 수
-      let current = 0;
-      const plane = document.querySelector("#animPlane");
-      const marker = document.querySelector("a-marker");
+  const total = 23;
+  let current = 0;
+  const plane = document.querySelector("#animPlane");
+  const marker = document.querySelector("a-marker");
 
-      // 마커 인식 여부 로그로 확인
-      marker.addEventListener("markerFound", () => {
-        console.log("✅ 마커 인식됨!");
-      });
+  marker.addEventListener("markerFound", () => {
+    console.log("✅ 마커 인식됨!");
+  });
 
-      marker.addEventListener("markerLost", () => {
-        console.log("❌ 마커 인식 해제됨");
-      });
+  marker.addEventListener("markerLost", () => {
+    console.log("❌ 마커 인식 해제됨");
+  });
 
-      // 애니메이션 프레임 순환
-      setInterval(() => {
-        plane.setAttribute("material", "src", "#frame_" + current);
-        current = (current + 1) % total;
-      }, 100); // 0.1초 간격 (10fps 정도)
-    </script>
+  setInterval(() => {
+    plane.setAttribute("material", "src", "#frame_" + current);
+    console.log("▶ 프레임:", current);  // 프레임 재생 로그 추가
+    current = (current + 1) % total;
+  }, 100);
+</script>
   </body>
 </html>
