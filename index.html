@@ -14,33 +14,32 @@
       arjs="sourceType: webcam; debugUIEnabled: false;"
     >
       <a-assets>
-        <!-- PNG 프레임 로딩 (id는 frame_000 형식) -->
-        <img id="frame_000" src="frames/frame_000.png" />
-        <img id="frame_001" src="frames/frame_001.png" />
-        <img id="frame_002" src="frames/frame_002.png" />
-        <img id="frame_003" src="frames/frame_003.png" />
-        <img id="frame_004" src="frames/frame_004.png" />
-        <img id="frame_005" src="frames/frame_005.png" />
-        <img id="frame_006" src="frames/frame_006.png" />
-        <img id="frame_007" src="frames/frame_007.png" />
-        <img id="frame_008" src="frames/frame_008.png" />
-        <img id="frame_009" src="frames/frame_009.png" />
-        <img id="frame_010" src="frames/frame_010.png" />
-        <img id="frame_011" src="frames/frame_011.png" />
-        <img id="frame_012" src="frames/frame_012.png" />
-        <img id="frame_013" src="frames/frame_013.png" />
-        <img id="frame_014" src="frames/frame_014.png" />
-        <img id="frame_015" src="frames/frame_015.png" />
-        <img id="frame_016" src="frames/frame_016.png" />
-        <img id="frame_017" src="frames/frame_017.png" />
-        <img id="frame_018" src="frames/frame_018.png" />
-        <img id="frame_019" src="frames/frame_019.png" />
-        <img id="frame_020" src="frames/frame_020.png" />
-        <img id="frame_021" src="frames/frame_021.png" />
-        <img id="frame_022" src="frames/frame_022.png" />
+        <!-- 이미지 23장 등록 (crossorigin 포함) -->
+        <img id="frame_000" src="frames/frame_000.png" crossorigin="anonymous" />
+        <img id="frame_001" src="frames/frame_001.png" crossorigin="anonymous" />
+        <img id="frame_002" src="frames/frame_002.png" crossorigin="anonymous" />
+        <img id="frame_003" src="frames/frame_003.png" crossorigin="anonymous" />
+        <img id="frame_004" src="frames/frame_004.png" crossorigin="anonymous" />
+        <img id="frame_005" src="frames/frame_005.png" crossorigin="anonymous" />
+        <img id="frame_006" src="frames/frame_006.png" crossorigin="anonymous" />
+        <img id="frame_007" src="frames/frame_007.png" crossorigin="anonymous" />
+        <img id="frame_008" src="frames/frame_008.png" crossorigin="anonymous" />
+        <img id="frame_009" src="frames/frame_009.png" crossorigin="anonymous" />
+        <img id="frame_010" src="frames/frame_010.png" crossorigin="anonymous" />
+        <img id="frame_011" src="frames/frame_011.png" crossorigin="anonymous" />
+        <img id="frame_012" src="frames/frame_012.png" crossorigin="anonymous" />
+        <img id="frame_013" src="frames/frame_013.png" crossorigin="anonymous" />
+        <img id="frame_014" src="frames/frame_014.png" crossorigin="anonymous" />
+        <img id="frame_015" src="frames/frame_015.png" crossorigin="anonymous" />
+        <img id="frame_016" src="frames/frame_016.png" crossorigin="anonymous" />
+        <img id="frame_017" src="frames/frame_017.png" crossorigin="anonymous" />
+        <img id="frame_018" src="frames/frame_018.png" crossorigin="anonymous" />
+        <img id="frame_019" src="frames/frame_019.png" crossorigin="anonymous" />
+        <img id="frame_020" src="frames/frame_020.png" crossorigin="anonymous" />
+        <img id="frame_021" src="frames/frame_021.png" crossorigin="anonymous" />
+        <img id="frame_022" src="frames/frame_022.png" crossorigin="anonymous" />
       </a-assets>
 
-      <!-- NFT 마커로 트래킹 -->
       <a-nft
         type="nft"
         url="AR"
@@ -63,15 +62,17 @@
     </a-scene>
 
     <script>
-      const plane = document.querySelector("#animPlane");
-      const totalFrames = 23;
-      let current = 0;
+      window.addEventListener("load", () => {
+        const plane = document.querySelector("#animPlane");
+        const totalFrames = 23;
+        let current = 0;
 
-      setInterval(() => {
-        const id = "#frame_" + String(current).padStart(3, "0"); // frame_000 형식
-        plane.setAttribute("material", "src", id);
-        current = (current + 1) % totalFrames;
-      }, 100);
+        setInterval(() => {
+          const id = "#frame_" + String(current).padStart(3, "0");
+          plane.setAttribute("material", "src", id);
+          current = (current + 1) % totalFrames;
+        }, 100);
+      });
     </script>
   </body>
 </html>
