@@ -1,0 +1,37 @@
+
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>WebAR PNG Animation</title>
+    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js/aframe/build/aframe-ar.min.js"></script>
+  </head>
+  <body style="margin: 0; overflow: hidden;">
+    <a-scene embedded arjs>
+      <a-marker type='pattern' url='pattern-이미지.patt'>
+        <a-plane id="anim" position='0 0 0' rotation='-90 0 0' width='1' height='1'></a-plane>
+      </a-marker>
+      <a-entity camera></a-entity>
+    </a-scene>
+    <script>
+      const plane = document.querySelector('#anim');
+      const frameCount = 23;
+      let currentFrame = 0;
+      const fps = 10;
+      const interval = 1000 / fps;
+
+      const textures = [];
+      for (let i = 0; i < frameCount; i++) {{
+        const img = new Image();
+        img.src = `frames/frame_${String(i).padStart(3, '0')}.png`;
+        textures.push(img.src);
+      }}
+
+      setInterval(() => {{
+        plane.setAttribute('material', 'src', textures[currentFrame]);
+        currentFrame = (currentFrame + 1) % frameCount;
+      }}, interval);
+    </script>
+  </body>
+</html>
