@@ -2,21 +2,45 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>WebAR PNG Animation</title>
+    <title>WebAR NFT PNG Animation</title>
     <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js/aframe/build/aframe-ar.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js/aframe/build/aframe-ar-nft.min.js"></script>
   </head>
   <body style="margin: 0; overflow: hidden">
     <a-scene
+      vr-mode-ui="enabled: false"
+      renderer="logarithmicDepthBuffer: true;"
       embedded
-      arjs="sourceType: webcam; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
+      arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;"
     >
+      <!-- 프레임 이미지 로드 -->
       <a-assets>
         <img id="frame_0" src="frames/frame_000.png" />
         <img id="frame_1" src="frames/frame_001.png" />
         <img id="frame_2" src="frames/frame_002.png" />
+        <img id="frame_3" src="frames/frame_003.png" />
+        <img id="frame_4" src="frames/frame_004.png" />
+        <img id="frame_5" src="frames/frame_005.png" />
+        <img id="frame_6" src="frames/frame_006.png" />
+        <img id="frame_7" src="frames/frame_007.png" />
+        <img id="frame_8" src="frames/frame_008.png" />
+        <img id="frame_9" src="frames/frame_009.png" />
+        <img id="frame_10" src="frames/frame_010.png" />
+        <img id="frame_11" src="frames/frame_011.png" />
+        <img id="frame_12" src="frames/frame_012.png" />
+        <img id="frame_13" src="frames/frame_013.png" />
+        <img id="frame_14" src="frames/frame_014.png" />
+        <img id="frame_15" src="frames/frame_015.png" />
+        <img id="frame_16" src="frames/frame_016.png" />
+        <img id="frame_17" src="frames/frame_017.png" />
+        <img id="frame_18" src="frames/frame_018.png" />
+        <img id="frame_19" src="frames/frame_019.png" />
+        <img id="frame_20" src="frames/frame_020.png" />
+        <img id="frame_21" src="frames/frame_021.png" />
+        <img id="frame_22" src="frames/frame_022.png" />
       </a-assets>
 
+      <!-- NFT 마커 -->
       <a-nft
         type="nft"
         url="AR"
@@ -25,6 +49,7 @@
         smoothTolerance="0.01"
         smoothThreshold="5"
       >
+        <!-- 애니메이션 평면 -->
         <a-plane
           id="animPlane"
           position="0 0 0"
@@ -39,15 +64,17 @@
     </a-scene>
 
     <script>
-      const total = 3;
-      let current = 0;
-      const plane = document.querySelector("#animPlane");
+      window.addEventListener("load", () => {
+        const totalFrames = 23;
+        let current = 0;
+        const plane = document.getElementById("animPlane");
 
-      setInterval(() => {
-        plane.setAttribute("material", "src", "#frame_" + current);
-        console.log("▶ 프레임:", current);
-        current = (current + 1) % total;
-      }, 500);
+        setInterval(() => {
+          const frameId = "#frame_" + current;
+          plane.setAttribute("material", "src", frameId);
+          current = (current + 1) % totalFrames;
+        }, 100);
+      });
     </script>
   </body>
 </html>
