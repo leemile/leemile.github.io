@@ -5,95 +5,121 @@
     <title>WebAR PNG Animation (TextureLoader)</title>
     <style>
       .arjs-loader {
-        position: absolute; top:0; left:0;
-        width:100%; height:100%;
-        background: rgba(0,0,0,0.8);
-        display:flex; justify-content:center; align-items:center;
-        color:white; font-size:1.2em;
-        z-index:9999;
+        position: absolute;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        color: white;
+        font-size: 1.2em;
+        z-index: 9999;
       }
     </style>
+    
+    <!-- 필수 라이브러리 -->
     <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
   </head>
+
   <body style="margin:0; overflow:hidden;">
     <div class="arjs-loader"><div>Loading AR assets, please wait...</div></div>
 
-    <a-scene embedded vr-mode-ui="enabled:false"
-             renderer="logarithmicDepthBuffer:true;"
-             arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;">
+    <a-scene
+      embedded
+      vr-mode-ui="enabled: false"
+      renderer="logarithmicDepthBuffer: true;"
+      arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;">
       
-     <a-nft type="nft" url="AR" id="nftMarker">
-  <a-plane id="animPlane"
-           position="0 0 0" rotation="-90 0 0"
-           width="2" height="2"
-           visible="false">
-  </a-plane>
-</a-nft>
+      <!-- NFT 마커 등록 -->
+      <a-nft
+        type="nft"
+        url="AR"
+        smooth="true"
+        smoothCount="10"
+        smoothTolerance="0.01"
+        smoothThreshold="5"
+        id="nftMarker">
+
+        <!-- 애니메이션 plane -->
+        <a-plane
+          id="animPlane"
+          position="0 0 0"
+          rotation="-90 0 0"
+          width="2"
+          height="2"
+          visible="false">
+        </a-plane>
+      </a-nft>
 
       <a-entity camera></a-entity>
     </a-scene>
 
-   <script>
- const plane = document.querySelector('#animPlane');
-const marker = document.querySelector('#nftMarker');
-const totalFrames = 23;
-const textures = [];
-let interval = null, current = 0;
-let meshReady = false;
+    <script>
+      const plane = document.querySelector('#animPlane');
+      const marker = document.querySelector('#nftMarker');
+      const totalFrames = 23;
+      const textures = [];
+      let interval = null;
+      let current = 0;
+      let meshReady = false;
 
-const loader = new THREE.TextureLoader();
-for (let i = 0; i < totalFrames; i++) {
-  const path = `frames/frame_${String(i).padStart(3, '0')}.png`;
-  textures.push(loader.load(path));
-}
+      const loader = new THREE.TextureLoader();
 
-// 🔧 mesh 준비되면 flag true
-plane.addEventListener('loaded', () => {
-  const mesh = plane.getObject3D('mesh');
-  if (mesh) meshReady = true;
-});
+      // PNG 프레임 미리 로딩
+      for (let i = 0; i < totalFrames; i++) {
+        const path = `frames/frame_${String(i).padStart(3, '0')}.png`;
+        textures.push(loader.load(path));
+      }
 
-function startAnimation() {
-  console.log("marker found");
-  if (!meshReady) {
-    console.log("mesh not ready");
-    setTimeout(startAnimation, 100);
-    return;
-  }
+      // mesh 준비 완료 여부 확인
+      plane.addEventListener('loaded', () => {
+        const mesh = plane.getObject3D('mesh');
+        if (mesh) {
+          meshReady = true;
+          console.log('[DEBUG] Plane mesh is ready.');
+        }
+      });
 
-  const mesh = plane.getObject3D('mesh');
-  if (!mesh || !mesh.material) {
-    console.log("mesh 또는 material 없음");
-    return;
-  }
+      function startAnimation() {
+        console.log('[DEBUG] markerFound event fired!');
+        if (!meshReady) {
+          console.log('[DEBUG] Mesh not ready yet. Retrying...');
+          setTimeout(startAnimation, 100);
+          return;
+        }
 
-  plane.setAttribute('visible', 'true');
-  if (interval) return;
+        const mesh = plane.getObject3D('mesh');
+        if (!mesh || !mesh.material) return;
 
-  interval = setInterval(() => {
-    if (textures[current]) {
-      console.log("applying texture:", current);
-      mesh.material.map = textures[current];
-      mesh.material.needsUpdate = true;
-    }
-    current = (current + 1) % totalFrames;
-  }, 100);
-}
+        plane.setAttribute('visible', 'true');
+        if (interval) return;
 
-function stopAnimation() {
-  clearInterval(interval);
-  interval = null;
-  current = 0;
-  plane.setAttribute('visible', 'false');
-}
+        interval = setInterval(() => {
+          if (textures[current]) {
+            mesh.material.map = textures[current];
+            mesh.material.needsUpdate = true;
+          }
+          current = (current + 1) % totalFrames;
+        }, 100); // 0.1초 간격
+      }
 
-marker.addEventListener('markerFound', startAnimation);
-marker.addEventListener('markerLost', stopAnimation);
+      function stopAnimation() {
+        console.log('[DEBUG] markerLost event fired!');
+        clearInterval(interval);
+        interval = null;
+        current = 0;
+        plane.setAttribute('visible', 'false');
+      }
 
-  window.addEventListener('load', () => {
-    document.querySelector('.arjs-loader').style.display = 'none';
-  });
-</script>
+      marker.addEventListener('markerFound', startAnimation);
+      marker.addEventListener('markerLost', stopAnimation);
+
+      // 로딩화면 제거
+      window.addEventListener('load', () => {
+        document.querySelector('.arjs-loader').style.display = 'none';
+      });
+    </script>
   </body>
 </html>
