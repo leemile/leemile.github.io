@@ -23,75 +23,73 @@
              renderer="logarithmicDepthBuffer:true;"
              arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;">
       
-      <a-nft type="nft" url="AR"
-             smooth="true" smoothCount="10" smoothTolerance="0.01" smoothThreshold="5"
-             id="nftMarker">
-        <a-entity id="animContainer">
-          <a-plane id="animPlane"
-                   position="0 0 0" rotation="-90 0 0"
-                   width="2" height="2"
-                   visible="false">
-          </a-plane>
-        </a-entity>
-      </a-nft>
+     <a-nft type="nft" url="AR" id="nftMarker">
+  <a-plane id="animPlane"
+           position="0 0 0" rotation="-90 0 0"
+           width="2" height="2"
+           visible="false">
+  </a-plane>
+</a-nft>
 
       <a-entity camera></a-entity>
     </a-scene>
 
    <script>
-  const plane = document.querySelector('#animPlane');
-  const marker = document.querySelector('#nftMarker');
-  const totalFrames = 23;
-  const textures = [];
-  let interval = null;
-  let current = 0;
-  let meshReady = false;
+ const plane = document.querySelector('#animPlane');
+const marker = document.querySelector('#nftMarker');
+const totalFrames = 23;
+const textures = [];
+let interval = null, current = 0;
+let meshReady = false;
 
-  const loader = new THREE.TextureLoader();
+const loader = new THREE.TextureLoader();
+for (let i = 0; i < totalFrames; i++) {
+  const path = `frames/frame_${String(i).padStart(3, '0')}.png`;
+  textures.push(loader.load(path));
+}
 
-  // 텍스처 미리 로딩
-  for (let i = 0; i < totalFrames; i++) {
-    const path = `frames/frame_${String(i).padStart(3, '0')}.png`;
-    textures.push(loader.load(path));
+// 🔧 mesh 준비되면 flag true
+plane.addEventListener('loaded', () => {
+  const mesh = plane.getObject3D('mesh');
+  if (mesh) meshReady = true;
+});
+
+function startAnimation() {
+  console.log("marker found");
+  if (!meshReady) {
+    console.log("mesh not ready");
+    setTimeout(startAnimation, 100);
+    return;
   }
 
-  // mesh가 준비됐는지 감지
-  plane.addEventListener('loaded', () => {
-    const mesh = plane.getObject3D('mesh');
-    if (mesh) meshReady = true;
-  });
+  const mesh = plane.getObject3D('mesh');
+  if (!mesh || !mesh.material) {
+    console.log("mesh 또는 material 없음");
+    return;
+  }
 
-  function startAnimation() {
-    if (!meshReady) {
-      // 아직 mesh가 없으면 재시도
-      setTimeout(startAnimation, 100);
-      return;
+  plane.setAttribute('visible', 'true');
+  if (interval) return;
+
+  interval = setInterval(() => {
+    if (textures[current]) {
+      console.log("applying texture:", current);
+      mesh.material.map = textures[current];
+      mesh.material.needsUpdate = true;
     }
+    current = (current + 1) % totalFrames;
+  }, 100);
+}
 
-    const mesh = plane.getObject3D('mesh');
-    if (!mesh || !mesh.material) return;
+function stopAnimation() {
+  clearInterval(interval);
+  interval = null;
+  current = 0;
+  plane.setAttribute('visible', 'false');
+}
 
-    plane.setAttribute('visible', 'true');
-    if (interval) return;
-
-    interval = setInterval(() => {
-      if (textures[current]) {
-        mesh.material.map = textures[current];
-        mesh.material.needsUpdate = true;
-      }
-      current = (current + 1) % totalFrames;
-    }, 100);
-  }
-
-  function stopAnimation() {
-    clearInterval(interval);
-    interval = null;
-    current = 0;
-    plane.setAttribute('visible', 'false');
-  }
-
-  marker.addEventListener('markerFound', startAnimation);
-  marker.addEventListener('markerLost', stopAnimation);
+marker.addEventListener('markerFound', startAnimation);
+marker.addEventListener('markerLost', stopAnimation);
 
   window.addEventListener('load', () => {
     document.querySelector('.arjs-loader').style.display = 'none';
