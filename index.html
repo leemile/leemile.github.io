@@ -38,52 +38,64 @@
       <a-entity camera></a-entity>
     </a-scene>
 
-    <script>
-      const plane = document.querySelector('#animPlane');
-      const marker = document.querySelector('#nftMarker');
-      const totalFrames = 23;
-      const textures = [];
-      let interval = null;
-      let current = 0;
+   <script>
+  const plane = document.querySelector('#animPlane');
+  const marker = document.querySelector('#nftMarker');
+  const totalFrames = 23;
+  const textures = [];
+  let interval = null;
+  let current = 0;
+  let meshReady = false;
 
-      const loader = new THREE.TextureLoader();
-      const mesh = plane.getObject3D('mesh');
+  const loader = new THREE.TextureLoader();
 
-      // 텍스처 미리 로드
-      for (let i = 0; i < totalFrames; i++) {
-        const filename = `frames/frame_${String(i).padStart(3, '0')}.png`;
-        textures.push(loader.load(filename));
+  // 텍스처 미리 로딩
+  for (let i = 0; i < totalFrames; i++) {
+    const path = `frames/frame_${String(i).padStart(3, '0')}.png`;
+    textures.push(loader.load(path));
+  }
+
+  // mesh가 준비됐는지 감지
+  plane.addEventListener('loaded', () => {
+    const mesh = plane.getObject3D('mesh');
+    if (mesh) meshReady = true;
+  });
+
+  function startAnimation() {
+    if (!meshReady) {
+      // 아직 mesh가 없으면 재시도
+      setTimeout(startAnimation, 100);
+      return;
+    }
+
+    const mesh = plane.getObject3D('mesh');
+    if (!mesh || !mesh.material) return;
+
+    plane.setAttribute('visible', 'true');
+    if (interval) return;
+
+    interval = setInterval(() => {
+      if (textures[current]) {
+        mesh.material.map = textures[current];
+        mesh.material.needsUpdate = true;
       }
+      current = (current + 1) % totalFrames;
+    }, 100);
+  }
 
-      function startAnimation() {
-        if (!mesh || textures.length === 0) return;
+  function stopAnimation() {
+    clearInterval(interval);
+    interval = null;
+    current = 0;
+    plane.setAttribute('visible', 'false');
+  }
 
-        plane.setAttribute('visible', 'true');
-        if (interval) return; // 이미 실행 중이면 return
+  marker.addEventListener('markerFound', startAnimation);
+  marker.addEventListener('markerLost', stopAnimation);
 
-        interval = setInterval(() => {
-          mesh.material.map = textures[current];
-          mesh.material.needsUpdate = true;
-          current = (current + 1) % totalFrames;
-        }, 100);
-      }
-
-      function stopAnimation() {
-        if (!mesh) return;
-        clearInterval(interval);
-        interval = null;
-        current = 0;
-        plane.setAttribute('visible', 'false');
-      }
-
-      // 마커 인식 이벤트 연결
-      marker.addEventListener('markerFound', startAnimation);
-      marker.addEventListener('markerLost', stopAnimation);
-
-      // 로딩 완료 시 로딩 메시지 숨기기
-      window.addEventListener('load', () => {
-        document.querySelector('.arjs-loader').style.display = 'none';
-      });
-    </script>
+  window.addEventListener('load', () => {
+    document.querySelector('.arjs-loader').style.display = 'none';
+  });
+</script>
   </body>
 </html>
