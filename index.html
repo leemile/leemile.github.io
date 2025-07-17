@@ -9,29 +9,46 @@
   </head>
   <body style="margin: 0; overflow: hidden;">
     <a-scene embedded arjs>
+      <a-assets>
+        <img id="frame_0" src="frames/frame_000.png">
+<img id="frame_1" src="frames/frame_001.png">
+<img id="frame_2" src="frames/frame_002.png">
+<img id="frame_3" src="frames/frame_003.png">
+<img id="frame_4" src="frames/frame_004.png">
+<img id="frame_5" src="frames/frame_005.png">
+<img id="frame_6" src="frames/frame_006.png">
+<img id="frame_7" src="frames/frame_007.png">
+<img id="frame_8" src="frames/frame_008.png">
+<img id="frame_9" src="frames/frame_009.png">
+<img id="frame_10" src="frames/frame_010.png">
+<img id="frame_11" src="frames/frame_011.png">
+<img id="frame_12" src="frames/frame_012.png">
+<img id="frame_13" src="frames/frame_013.png">
+<img id="frame_14" src="frames/frame_014.png">
+<img id="frame_15" src="frames/frame_015.png">
+<img id="frame_16" src="frames/frame_016.png">
+<img id="frame_17" src="frames/frame_017.png">
+<img id="frame_18" src="frames/frame_018.png">
+<img id="frame_19" src="frames/frame_019.png">
+<img id="frame_20" src="frames/frame_020.png">
+<img id="frame_21" src="frames/frame_021.png">
+<img id="frame_22" src="frames/frame_022.png">
+      </a-assets>
+
       <a-marker type='pattern' url='pattern-이미지.patt'>
-        <a-plane id="anim" position='0 0 0' rotation='-90 0 0' width='1' height='1'></a-plane>
+        <a-plane id="animPlane" position='0 0 0' rotation='-90 0 0' width='1' height='1' material='src: #frame_0'></a-plane>
       </a-marker>
       <a-entity camera></a-entity>
     </a-scene>
+
     <script>
-      const plane = document.querySelector('#anim');
-      const frameCount = 23;
-      let currentFrame = 0;
-      const fps = 10;
-      const interval = 1000 / fps;
-
-      const textures = [];
-      for (let i = 0; i < frameCount; i++) {{
-        const img = new Image();
-        img.src = `frames/frame_${String(i).padStart(3, '0')}.png`;
-        textures.push(img.src);
-      }}
-
-      setInterval(() => {{
-        plane.setAttribute('material', 'src', textures[currentFrame]);
-        currentFrame = (currentFrame + 1) % frameCount;
-      }}, interval);
+      const total = 23;
+      let current = 0;
+      const plane = document.querySelector("#animPlane");
+      setInterval(() => {
+        plane.setAttribute("material", "src", "#frame_" + current);
+        current = (current + 1) % total;
+      }, 100);
     </script>
   </body>
 </html>
