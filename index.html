@@ -1,84 +1,76 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <meta charset="utf-8" />
+    <meta charset="utf-8">
     <title>WebAR PNG Animation</title>
+    <style>
+      .arjs-loader {
+        position: absolute; top:0; left:0;
+        width:100%; height:100%;
+        background: rgba(0,0,0,0.8);
+        display:flex; justify-content:center; align-items:center;
+        color:white; font-size:1.2em;
+        z-index:9999;
+      }
+    </style>
     <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js/aframe/build/aframe-ar-nft.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
   </head>
-  <body style="margin: 0; overflow: hidden">
-    <a-scene
-      embedded
-      vr-mode-ui="enabled: false"
-      renderer="logarithmicDepthBuffer: true;"
-      arjs="sourceType: webcam; debugUIEnabled: false;"
-    >
-      <a-assets id="assets">
-        <!-- 프레임 이미지 로드 -->
-        <!-- frame_000.png ~ frame_022.png -->
-        ${[...Array(23)].map((_, i) => {
-          const index = i.toString().padStart(3, '0');
-          return `<img id="frame_${i}" src="frames/frame_${index}.png" />`;
-        }).join('\n        ')}
+  <body style="margin:0; overflow:hidden;">
+    <div class="arjs-loader"><div>Loading AR assets, please wait...</div></div>
+
+    <a-scene embedded vr-mode-ui="enabled:false"
+             renderer="logarithmicDepthBuffer:true;"
+             arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;">
+      <a-assets>
+        <!-- PNG 프레임들 -->
+        <img id="frame_000" src="frames/frame_000.png">
+        <!-- ... -->
+        <img id="frame_022" src="frames/frame_022.png">
       </a-assets>
 
-      <a-nft
-        type="nft"
-        url="AR"
-        smooth="true"
-        smoothCount="10"
-        smoothTolerance="0.01"
-        smoothThreshold="5"
-        id="nftMarker"
-      >
-        <a-plane
-          id="animPlane"
-          position="0 0 0"
-          rotation="-90 0 0"
-          width="2"
-          height="2"
-          material="src: #frame_0; transparent: true;"
-          visible="false"
-        ></a-plane>
-      </a-nft>
+      <a-nft type="nft" url="AR"
+             smooth="true" smoothCount="10" smoothTolerance="0.01" smoothThreshold="5"
+             @markerFound="onStart()" @markerLost="onStop()">
 
+        <a-plane id="animPlane" visible="false"
+                 position="0 0 0" rotation="-90 0 0"
+                 width="2" height="2"
+                 material="src: #frame_000; transparent: true;">
+        </a-plane>
+
+      </a-nft>
       <a-entity camera></a-entity>
     </a-scene>
 
     <script>
-      const plane = document.querySelector("#animPlane");
-      const marker = document.querySelector("#nftMarker");
+      const plane = document.querySelector('#animPlane');
+      const marker = document.querySelector('a-nft');
       const totalFrames = 23;
-      let current = 0;
-      let interval = null;
+      let interval = null, current = 0;
 
-      const startAnimation = () => {
-        if (interval) return;
-        interval = setInterval(() => {
-          const id = `#frame_${current}`;
-          plane.setAttribute("material", "src", id);
+      function onStart() {
+        plane.setAttribute('visible', true);
+        if (!interval) interval = setInterval(() => {
+          const id = '#frame_' + String(current).padStart(3,'0');
+          plane.setAttribute('material', 'src', id);
           current = (current + 1) % totalFrames;
         }, 100);
-      };
+      }
 
-      const stopAnimation = () => {
+      function onStop() {
+        plane.setAttribute('visible', false);
         clearInterval(interval);
         interval = null;
         current = 0;
-        plane.setAttribute("material", "src", "#frame_0");
-      };
+      }
 
-      // 모든 assets가 로드된 후 실행
-      document.querySelector("a-scene").addEventListener("loaded", () => {
-        marker.addEventListener("markerFound", () => {
-          plane.setAttribute("visible", true);
-          startAnimation();
-        });
+      marker.addEventListener('markerFound', onStart);
+      marker.addEventListener('markerLost', onStop);
 
-        marker.addEventListener("markerLost", () => {
-          plane.setAttribute("visible", false);
-          stopAnimation();
-        });
+      // 로딩 완료 시 로더 숨기기
+      window.addEventListener('load', () => {
+        document.querySelector('.arjs-loader').style.display = 'none';
       });
     </script>
   </body>
