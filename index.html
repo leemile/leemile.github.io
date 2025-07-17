@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>WebAR PNG Animation</title>
+    <title>WebAR PNG Animation (TextureLoader)</title>
     <style>
       .arjs-loader {
         position: absolute; top:0; left:0;
@@ -22,53 +22,65 @@
     <a-scene embedded vr-mode-ui="enabled:false"
              renderer="logarithmicDepthBuffer:true;"
              arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;">
-      <a-assets>
-        <!-- PNG 프레임들 -->
-        <img id="frame_000" src="frames/frame_000.png">
-        <!-- ... -->
-        <img id="frame_022" src="frames/frame_022.png">
-      </a-assets>
-
+      
       <a-nft type="nft" url="AR"
              smooth="true" smoothCount="10" smoothTolerance="0.01" smoothThreshold="5"
-             @markerFound="onStart()" @markerLost="onStop()">
-
-        <a-plane id="animPlane" visible="false"
-                 position="0 0 0" rotation="-90 0 0"
-                 width="2" height="2"
-                 material="src: #frame_000; transparent: true;">
-        </a-plane>
-
+             id="nftMarker">
+        <a-entity id="animContainer">
+          <a-plane id="animPlane"
+                   position="0 0 0" rotation="-90 0 0"
+                   width="2" height="2"
+                   visible="false">
+          </a-plane>
+        </a-entity>
       </a-nft>
+
       <a-entity camera></a-entity>
     </a-scene>
 
     <script>
       const plane = document.querySelector('#animPlane');
-      const marker = document.querySelector('a-nft');
+      const marker = document.querySelector('#nftMarker');
       const totalFrames = 23;
-      let interval = null, current = 0;
+      const textures = [];
+      let interval = null;
+      let current = 0;
 
-      function onStart() {
-        plane.setAttribute('visible', true);
-        if (!interval) interval = setInterval(() => {
-          const id = '#frame_' + String(current).padStart(3,'0');
-          plane.setAttribute('material', 'src', id);
+      const loader = new THREE.TextureLoader();
+      const mesh = plane.getObject3D('mesh');
+
+      // 텍스처 미리 로드
+      for (let i = 0; i < totalFrames; i++) {
+        const filename = `frames/frame_${String(i).padStart(3, '0')}.png`;
+        textures.push(loader.load(filename));
+      }
+
+      function startAnimation() {
+        if (!mesh || textures.length === 0) return;
+
+        plane.setAttribute('visible', 'true');
+        if (interval) return; // 이미 실행 중이면 return
+
+        interval = setInterval(() => {
+          mesh.material.map = textures[current];
+          mesh.material.needsUpdate = true;
           current = (current + 1) % totalFrames;
         }, 100);
       }
 
-      function onStop() {
-        plane.setAttribute('visible', false);
+      function stopAnimation() {
+        if (!mesh) return;
         clearInterval(interval);
         interval = null;
         current = 0;
+        plane.setAttribute('visible', 'false');
       }
 
-      marker.addEventListener('markerFound', onStart);
-      marker.addEventListener('markerLost', onStop);
+      // 마커 인식 이벤트 연결
+      marker.addEventListener('markerFound', startAnimation);
+      marker.addEventListener('markerLost', stopAnimation);
 
-      // 로딩 완료 시 로더 숨기기
+      // 로딩 완료 시 로딩 메시지 숨기기
       window.addEventListener('load', () => {
         document.querySelector('.arjs-loader').style.display = 'none';
       });
