@@ -15,6 +15,7 @@
     >
       <a-assets>
         <!-- PNG 프레임 로딩 -->
+        <!-- frame_0 ~ frame_22 (23장) -->
         <img id="frame_0" src="frames/frame_000.png" />
         <img id="frame_1" src="frames/frame_001.png" />
         <img id="frame_2" src="frames/frame_002.png" />
@@ -47,6 +48,7 @@
         smoothCount="10"
         smoothTolerance="0.01"
         smoothThreshold="5"
+        id="nftMarker"
       >
         <a-plane
           id="animPlane"
@@ -55,6 +57,7 @@
           width="2"
           height="2"
           material="src: #frame_0; transparent: true;"
+          visible="false"
         ></a-plane>
       </a-nft>
 
@@ -63,14 +66,40 @@
 
     <script>
       const plane = document.querySelector("#animPlane");
+      const marker = document.querySelector("#nftMarker");
       const totalFrames = 23;
       let current = 0;
+      let animationInterval = null;
 
-      setInterval(() => {
-        const id = "frame_" + current; // 이제 frame_0 ~ frame_22로 맞춤
-        plane.setAttribute("material", "src", "#" + id);
-        current = (current + 1) % totalFrames;
-      }, 100);
+      // 애니메이션 시작 함수
+      const startAnimation = () => {
+        if (animationInterval) return; // 중복 실행 방지
+        animationInterval = setInterval(() => {
+          const id = "frame_" + current;
+          plane.setAttribute("material", "src", "#" + id);
+          current = (current + 1) % totalFrames;
+        }, 100); // 10fps
+      };
+
+      // 애니메이션 멈춤 함수
+      const stopAnimation = () => {
+        clearInterval(animationInterval);
+        animationInterval = null;
+        current = 0;
+        plane.setAttribute("material", "src", "#frame_0");
+      };
+
+      // 마커 인식 시
+      marker.addEventListener("markerFound", () => {
+        plane.setAttribute("visible", "true");
+        startAnimation();
+      });
+
+      // 마커 손실 시
+      marker.addEventListener("markerLost", () => {
+        plane.setAttribute("visible", "false");
+        stopAnimation();
+      });
     </script>
   </body>
 </html>
