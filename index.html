@@ -3,14 +3,13 @@
   <head>
     <meta charset="utf-8">
     <title>WebAR PNG Animation</title>
-    <!-- A-Frame + AR.js 불러오기 -->
     <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js/aframe/build/aframe-ar.min.js"></script>
   </head>
   <body style="margin: 0; overflow: hidden;">
     <a-scene embedded arjs>
-      <!-- 이미지 프리로드 -->
-      <a-assets>
+      <a-assets timeout="10000">
+        <!-- 이미지 프레임 23개 로딩 -->
         <img id="frame_0" src="frames/frame_000.png">
         <img id="frame_1" src="frames/frame_001.png">
         <img id="frame_2" src="frames/frame_002.png">
@@ -36,38 +35,50 @@
         <img id="frame_22" src="frames/frame_022.png">
       </a-assets>
 
-      <!-- 패턴 마커 연결 -->
+      <!-- 마커 정의 -->
       <a-marker type="pattern" url="AR.patt">
         <a-plane id="animPlane"
                  position="0 0 0"
                  rotation="-90 0 0"
-                 width="1"
-                 height="1"
-                 material="src: #frame_0">
+                 width="2" height="2"
+                 material="src: #frame_0; transparent: true">
         </a-plane>
       </a-marker>
 
       <a-entity camera></a-entity>
     </a-scene>
+
     <script>
-  const total = 23;
-  let current = 0;
-  const plane = document.querySelector("#animPlane");
-  const marker = document.querySelector("a-marker");
+      const total = 23;
+      let current = 0;
+      let playing = false;
+      let intervalId = null;
 
-  marker.addEventListener("markerFound", () => {
-    console.log("✅ 마커 인식됨!");
-  });
+      const plane = document.querySelector("#animPlane");
+      const marker = document.querySelector("a-marker");
 
-  marker.addEventListener("markerLost", () => {
-    console.log("❌ 마커 인식 해제됨");
-  });
+      // 마커 인식 시
+      marker.addEventListener("markerFound", () => {
+        console.log("✅ 마커 인식됨!");
+        if (!playing) {
+          playing = true;
+          intervalId = setInterval(() => {
+            const frameId = "#frame_" + current;
+            plane.setAttribute("material", "src", frameId);
+            console.log("▶ 프레임:", current);
+            current = (current + 1) % total;
+          }, 100);
+        }
+      });
 
-  setInterval(() => {
-    plane.setAttribute("material", "src", "#frame_" + current);
-    console.log("▶ 프레임:", current);  // 프레임 재생 로그 추가
-    current = (current + 1) % total;
-  }, 100);
-</script>
+      // 마커 인식 해제 시
+      marker.addEventListener("markerLost", () => {
+        console.log("❌ 마커 인식 해제됨");
+        if (playing) {
+          clearInterval(intervalId);
+          playing = false;
+        }
+      });
+    </script>
   </body>
 </html>
