@@ -1,74 +1,69 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <meta charset="utf-8">
+    <meta charset="utf-8" />
     <title>WebAR PNG Animation</title>
+    <!-- A-Frame & AR.js -->
     <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js/aframe/build/aframe-ar.min.js"></script>
   </head>
-  <body style="margin: 0; overflow: hidden;">
-    <a-scene embedded arjs>
+  <body style="margin: 0; overflow: hidden">
+    <a-scene
+      embedded
+      arjs="sourceType: webcam; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
+    >
       <a-assets>
-        <!-- 프레임 이미지 23개 등록 -->
-        <img id="frame_0" src="frames/frame_000.png">
-        <img id="frame_1" src="frames/frame_001.png">
-        <img id="frame_2" src="frames/frame_002.png">
-        <img id="frame_3" src="frames/frame_003.png">
-        <img id="frame_4" src="frames/frame_004.png">
-        <img id="frame_5" src="frames/frame_005.png">
-        <img id="frame_6" src="frames/frame_006.png">
-        <img id="frame_7" src="frames/frame_007.png">
-        <img id="frame_8" src="frames/frame_008.png">
-        <img id="frame_9" src="frames/frame_009.png">
-        <img id="frame_10" src="frames/frame_010.png">
-        <img id="frame_11" src="frames/frame_011.png">
-        <img id="frame_12" src="frames/frame_012.png">
-        <img id="frame_13" src="frames/frame_013.png">
-        <img id="frame_14" src="frames/frame_014.png">
-        <img id="frame_15" src="frames/frame_015.png">
-        <img id="frame_16" src="frames/frame_016.png">
-        <img id="frame_17" src="frames/frame_017.png">
-        <img id="frame_18" src="frames/frame_018.png">
-        <img id="frame_19" src="frames/frame_019.png">
-        <img id="frame_20" src="frames/frame_020.png">
-        <img id="frame_21" src="frames/frame_021.png">
-        <img id="frame_22" src="frames/frame_022.png">
+        <!-- PNG 프레임 로드 -->
+        <img id="frame_0" src="frames/frame_000.png" />
+        <img id="frame_1" src="frames/frame_001.png" />
+        <img id="frame_2" src="frames/frame_002.png" />
+        <img id="frame_3" src="frames/frame_003.png" />
+        <img id="frame_4" src="frames/frame_004.png" />
+        <img id="frame_5" src="frames/frame_005.png" />
+        <img id="frame_6" src="frames/frame_006.png" />
+        <img id="frame_7" src="frames/frame_007.png" />
+        <img id="frame_8" src="frames/frame_008.png" />
+        <img id="frame_9" src="frames/frame_009.png" />
+        <img id="frame_10" src="frames/frame_010.png" />
+        <img id="frame_11" src="frames/frame_011.png" />
+        <img id="frame_12" src="frames/frame_012.png" />
+        <img id="frame_13" src="frames/frame_013.png" />
+        <img id="frame_14" src="frames/frame_014.png" />
+        <img id="frame_15" src="frames/frame_015.png" />
+        <img id="frame_16" src="frames/frame_016.png" />
+        <img id="frame_17" src="frames/frame_017.png" />
+        <img id="frame_18" src="frames/frame_018.png" />
+        <img id="frame_19" src="frames/frame_019.png" />
+        <img id="frame_20" src="frames/frame_020.png" />
+        <img id="frame_21" src="frames/frame_021.png" />
+        <img id="frame_22" src="frames/frame_022.png" />
       </a-assets>
 
+      <!-- 마커에 반응하는 평면 -->
       <a-marker type="pattern" url="AR.patt">
-        <a-plane id="animPlane"
-                 position="0 0 0"
-                 rotation="-90 0 0"
-                 width="2"
-                 height="2"
-                 material="src: #frame_0; transparent: true">
-        </a-plane>
+        <a-plane
+          id="animPlane"
+          position="0 0 0"
+          rotation="-90 0 0"
+          width="2"
+          height="2"
+          material="src: #frame_0; transparent: true"
+        ></a-plane>
       </a-marker>
 
       <a-entity camera></a-entity>
     </a-scene>
 
     <script>
-      window.addEventListener("DOMContentLoaded", () => {
-        const total = 23;
-        let current = 0;
-        const plane = document.querySelector("#animPlane");
-        const marker = document.querySelector("a-marker");
+      const total = 23;
+      let current = 0;
+      const plane = document.querySelector("#animPlane");
 
-        marker.addEventListener("markerFound", () => {
-          console.log("✅ 마커 인식됨!");
-        });
-
-        marker.addEventListener("markerLost", () => {
-          console.log("❌ 마커 인식 해제됨");
-        });
-
-        setInterval(() => {
-          plane.setAttribute("material", "src", "#frame_" + current);
-          console.log("▶ 프레임:", current);
-          current = (current + 1) % total;
-        }, 100);
-      });
+      // 애니메이션 타이머 (항상 실행, 마커 없어도)
+      setInterval(() => {
+        plane.setAttribute("material", "src", "#frame_" + current);
+        current = (current + 1) % total;
+      }, 100);
     </script>
   </body>
 </html>
