@@ -3,14 +3,28 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no" />
-  <title>AR.js THREE - Frame Animation (HIRO)</title>
+  <title>AR.js THREE - Video Background FIX</title>
   <style>
     html, body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#000; }
+
+    /* 비디오를 배경으로 */
+    #ar-video {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      object-fit: cover;
+      z-index: 1;
+      background:#000;
+    }
+
+    /* WebGL 캔버스를 위로 */
+    canvas { position: fixed !important; top:0; left:0; z-index: 2; }
+
     #hud {
-      position:fixed; left:10px; top:10px; z-index:9999;
-      font:12px/1.35 monospace; color:#0f0;
-      background:rgba(0,0,0,.6); padding:10px; border-radius:8px; white-space:pre;
-      max-width:94vw;
+      position: fixed; top: 10px; left: 10px; z-index: 9999;
+      font: 12px/1.35 monospace; color: #0f0;
+      background: rgba(0,0,0,.6); padding: 10px; border-radius: 8px; white-space: pre;
+      max-width: 94vw;
     }
   </style>
 
@@ -18,11 +32,12 @@
   <script src="https://cdn.jsdelivr.net/npm/@ar-js-org/ar.js@3.4.7/three.js/build/ar-threex.js"></script>
 </head>
 <body>
+  <video id="ar-video" autoplay muted playsinline></video>
   <div id="hud">boot...</div>
 
   <script>
     const HUD = document.getElementById('hud');
-    const log = (s) => HUD.textContent = s;
+    const videoEl = document.getElementById('ar-video');
 
     const TOTAL = 22;
     const FRAME_URL = (i) => `https://leemile.github.io/frames/frame_${String(i).padStart(3,'0')}.png`;
@@ -30,13 +45,25 @@
     let renderer, scene, camera;
     let arToolkitSource, arToolkitContext;
     let markerRoot;
-    let plane, material, textures = [];
+
+    let plane, material;
+    const textures = new Array(TOTAL);
     let loaded = 0;
 
     let frame = 0;
     let last = 0;
 
-    // three 기본 세팅
+    function hud(extra='') {
+      HUD.textContent =
+`video readyState: ${videoEl.readyState}
+video size: ${videoEl.videoWidth}x${videoEl.videoHeight}
+textures: ${loaded}/${TOTAL}
+marker visible: ${markerRoot ? markerRoot.visible : false}
+frame: ${frame}
+${extra}`;
+    }
+
+    // 1) THREE 기본
     scene = new THREE.Scene();
     camera = new THREE.Camera();
     scene.add(camera);
@@ -44,65 +71,60 @@
     renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setClearColor(new THREE.Color('black'), 0);
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.domElement.style.position = 'absolute';
-    renderer.domElement.style.top = '0';
-    renderer.domElement.style.left = '0';
-    renderer.domElement.style.zIndex = '2';
     document.body.appendChild(renderer.domElement);
 
-    // AR 소스(카메라)
-    arToolkitSource = new THREEx.ArToolkitSource({ sourceType: 'webcam' });
-    arToolkitSource.init(() => onResize());
-    window.addEventListener('resize', () => onResize());
+    // 2) getUserMedia로 비디오를 직접 붙임 (검은 화면 해결 핵심)
+    async function startVideo() {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' },
+        audio: false
+      });
+      videoEl.srcObject = stream;
+      await videoEl.play();
+      hud('video started');
+    }
 
-    function onResize(){
-      arToolkitSource.onResizeElement();
-      arToolkitSource.copyElementSizeTo(renderer.domElement);
-      if (arToolkitContext && arToolkitContext.arController) {
-        arToolkitSource.copyElementSizeTo(arToolkitContext.arController.canvas);
+    // 3) AR 컨텍스트/마커 세팅
+    function setupAR() {
+      arToolkitContext = new THREEx.ArToolkitContext({
+        cameraParametersUrl: 'https://cdn.jsdelivr.net/npm/@ar-js-org/ar.js@3.4.7/three.js/data/camera_para.dat',
+        detectionMode: 'mono'
+      });
+
+      arToolkitContext.init(() => {
+        camera.projectionMatrix.copy(arToolkitContext.getProjectionMatrix());
+      });
+
+      markerRoot = new THREE.Group();
+      scene.add(markerRoot);
+
+      new THREEx.ArMarkerControls(arToolkitContext, markerRoot, {
+        type: 'pattern',
+        patternUrl: 'https://cdn.jsdelivr.net/npm/@ar-js-org/ar.js@3.4.7/three.js/data/patt.hiro'
+      });
+
+      // plane
+      material = new THREE.MeshBasicMaterial({
+        transparent: true,
+        side: THREE.DoubleSide,
+        depthTest: false,
+        depthWrite: false
+      });
+
+      plane = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 1.2), material);
+      plane.rotation.x = -Math.PI / 2;
+      plane.position.y = 0.01;
+      markerRoot.add(plane);
+
+      // 텍스처
+      const texLoader = new THREE.TextureLoader();
+      for (let i = 0; i < TOTAL; i++) {
+        texLoader.load(FRAME_URL(i), (tex) => {
+          textures[i] = tex;
+          loaded++;
+        });
       }
     }
-
-    // ✅ camera_para.dat 올바른 경로(three.js 빌드의 data 경로)
-    arToolkitContext = new THREEx.ArToolkitContext({
-      cameraParametersUrl: 'https://cdn.jsdelivr.net/npm/@ar-js-org/ar.js@3.4.7/three.js/data/camera_para.dat',
-      detectionMode: 'mono'
-    });
-
-    arToolkitContext.init(() => {
-      camera.projectionMatrix.copy(arToolkitContext.getProjectionMatrix());
-    });
-
-    // 마커(HIRO)
-    markerRoot = new THREE.Group();
-    scene.add(markerRoot);
-
-    new THREEx.ArMarkerControls(arToolkitContext, markerRoot, {
-      type: 'pattern',
-      patternUrl: 'https://cdn.jsdelivr.net/npm/@ar-js-org/ar.js@3.4.7/three.js/data/patt.hiro'
-    });
-
-    // 텍스처 로드
-    const texLoader = new THREE.TextureLoader();
-    for (let i = 0; i < TOTAL; i++) {
-      texLoader.load(FRAME_URL(i), (tex) => {
-        textures[i] = tex;
-        loaded++;
-      }, undefined, (e) => console.error('texture fail', i, e));
-    }
-
-    material = new THREE.MeshBasicMaterial({
-      transparent: true,
-      side: THREE.DoubleSide,
-      depthTest: false,
-      depthWrite: false
-    });
-
-    const geo = new THREE.PlaneGeometry(1.2, 1.2);
-    plane = new THREE.Mesh(geo, material);
-    plane.rotation.x = -Math.PI / 2;
-    plane.position.y = 0.01;
-    markerRoot.add(plane);
 
     function setFrame(i) {
       const t = textures[i];
@@ -111,23 +133,20 @@
       material.needsUpdate = true;
     }
 
-    function animate(now){
+    function onResize() {
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+    window.addEventListener('resize', onResize);
+
+    // 4) 루프: video를 소스로 AR 업데이트
+    function animate(now) {
       requestAnimationFrame(animate);
 
-      if (arToolkitSource.ready !== false) {
-        arToolkitContext.update(arToolkitSource.domElement);
+      if (arToolkitContext && videoEl.readyState >= 2) {
+        arToolkitContext.update(videoEl);
       }
 
-      const visible = markerRoot.visible;
-      const ready = (loaded === TOTAL);
-
-      log(
-`marker visible: ${visible}
-textures: ${loaded}/${TOTAL}
-frame: ${frame}`
-      );
-
-      if (visible && ready) {
+      if (markerRoot && markerRoot.visible && loaded === TOTAL) {
         if (now - last > 80) {
           setFrame(frame);
           frame = (frame + 1) % TOTAL;
@@ -136,9 +155,19 @@ frame: ${frame}`
       }
 
       renderer.render(scene, camera);
+      hud();
     }
 
-    animate(0);
+    (async () => {
+      try {
+        await startVideo();
+        setupAR();
+        animate(0);
+      } catch (e) {
+        console.error(e);
+        hud('ERROR: ' + (e && e.message ? e.message : e));
+      }
+    })();
   </script>
 </body>
 </html>
