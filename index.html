@@ -1,14 +1,136 @@
 <!DOCTYPE html>
-<html>
+<html lang="ko">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>AR Animation Stable (Z-Index Fix)</title>
+
   <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js/aframe/build/aframe-ar-nft.js"></script>
+
+  <style>
+    html, body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#000; }
+
+    /* 핵심: AR 비디오/캔버스 레이어 강제 정렬 */
+    video, canvas { position: absolute !important; top:0; left:0; }
+
+    /* AR.js 비디오(카메라)는 아래 */
+    video { z-index: 1 !important; }
+
+    /* A-Frame WebGL 캔버스는 위 */
+    canvas.a-canvas { z-index: 10 !important; }
+
+    /* HUD/로더는 최상단 */
+    #loader {
+      position:fixed; inset:0; display:flex; justify-content:center; align-items:center;
+      background:rgba(0,0,0,0.85); color:#fff; z-index:999;
+      font: 16px sans-serif;
+    }
+  </style>
 </head>
-<body style="margin:0; background:#000;">
-  <a-scene>
-    <a-plane position="0 1.6 -2" width="1.5" height="1.5" color="#ff0000"></a-plane>
-    <a-entity camera position="0 1.6 0"></a-entity>
+<body>
+  <div id="loader">로딩 중...</div>
+
+  <a-scene
+    embedded
+    vr-mode-ui="enabled:false"
+    renderer="antialias:true; alpha:true;"
+    arjs="trackingMethod: best; sourceType: webcam;
+          sourceWidth: 640; sourceHeight: 480; displayWidth: 640; displayHeight: 480;
+          debugUIEnabled: false;">
+
+    <a-nft id="nft-target" type="nft" url="https://leemile.github.io/AR"
+      smooth="true" smoothCount="5" smoothTolerance="0.08" smoothThreshold="2">
+
+      <a-plane id="ani-plane"
+        position="0 0 0.02"
+        rotation="-90 0 0"
+        width="2.5" height="2.5"
+        material="transparent:true; shader:flat; side:double; opacity:1;"
+        visible="false">
+      </a-plane>
+
+    </a-nft>
+
+    <a-entity camera></a-entity>
   </a-scene>
+
+  <script>
+    window.addEventListener('load', () => {
+      const nft = document.querySelector('#nft-target');
+      const plane = document.querySelector('#ani-plane');
+
+      const totalFrames = 22;
+      const textures = [];
+      let currentIdx = 0;
+      let animationId = null;
+      let lastUpdate = 0;
+      let texturesReady = false;
+
+      // 텍스처 로드
+      const loader = new THREE.TextureLoader();
+      loader.setCrossOrigin('anonymous');
+
+      let loaded = 0;
+      for (let i = 0; i < totalFrames; i++) {
+        const frameNum = String(i).padStart(3, '0');
+        loader.load(
+          `https://leemile.github.io/frames/frame_${frameNum}.png`,
+          (tex) => {
+            textures[i] = tex;
+            if (++loaded === totalFrames) texturesReady = true;
+          }
+        );
+      }
+
+      function updateAnim(time) {
+        if (time - lastUpdate > 80) {
+          const mesh = plane.getObject3D('mesh');
+          if (mesh && textures[currentIdx]) {
+            // A-Frame material과 충돌 방지: depth off
+            mesh.material.depthTest = false;
+            mesh.material.depthWrite = false;
+
+            mesh.material.map = textures[currentIdx];
+            mesh.material.needsUpdate = true;
+          }
+          currentIdx = (currentIdx + 1) % totalFrames;
+          lastUpdate = time;
+        }
+        animationId = requestAnimationFrame(updateAnim);
+      }
+
+      function start() {
+        if (!texturesReady) return;
+        plane.setAttribute('visible', true);
+
+        // 항상 위에 그리기
+        plane.object3D.renderOrder = 999;
+        plane.object3D.traverse(o => { if (o.isMesh) o.renderOrder = 999; });
+
+        if (!animationId) animationId = requestAnimationFrame(updateAnim);
+      }
+
+      function stop() {
+        plane.setAttribute('visible', false);
+        if (animationId) {
+          cancelAnimationFrame(animationId);
+          animationId = null;
+        }
+      }
+
+      // 이벤트 + visible 폴링(안정)
+      nft.addEventListener('markerFound', start);
+      nft.addEventListener('markerLost', stop);
+      setInterval(() => {
+        const tracking = !!(nft.object3D && nft.object3D.visible);
+        if (tracking) start(); else stop();
+      }, 100);
+
+      window.addEventListener('arjs-nft-loaded', () => {
+        document.getElementById('loader').style.display = 'none';
+      });
+    });
+  </script>
 </body>
 </html>
