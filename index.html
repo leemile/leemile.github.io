@@ -14,9 +14,7 @@
     }
   </style>
 
-  <!-- three.js -->
   <script src="https://cdn.jsdelivr.net/npm/three@0.125.1/build/three.min.js"></script>
-  <!-- AR.js (three.js build) -->
   <script src="https://cdn.jsdelivr.net/npm/@ar-js-org/ar.js@3.4.7/three.js/build/ar-threex.js"></script>
 </head>
 <body>
@@ -35,11 +33,10 @@
     let plane, material, textures = [];
     let loaded = 0;
 
-    let playing = false;
     let frame = 0;
     let last = 0;
 
-    // 1) three 기본 세팅
+    // three 기본 세팅
     scene = new THREE.Scene();
     camera = new THREE.Camera();
     scene.add(camera);
@@ -53,7 +50,7 @@
     renderer.domElement.style.zIndex = '2';
     document.body.appendChild(renderer.domElement);
 
-    // 2) AR 소스(카메라)
+    // AR 소스(카메라)
     arToolkitSource = new THREEx.ArToolkitSource({ sourceType: 'webcam' });
     arToolkitSource.init(() => onResize());
     window.addEventListener('resize', () => onResize());
@@ -66,26 +63,26 @@
       }
     }
 
-    // 3) AR 컨텍스트
+    // ✅ camera_para.dat 올바른 경로(three.js 빌드의 data 경로)
     arToolkitContext = new THREEx.ArToolkitContext({
       cameraParametersUrl: 'https://cdn.jsdelivr.net/npm/@ar-js-org/ar.js@3.4.7/three.js/data/camera_para.dat',
-      detectionMode: 'mono',
+      detectionMode: 'mono'
     });
 
     arToolkitContext.init(() => {
       camera.projectionMatrix.copy(arToolkitContext.getProjectionMatrix());
     });
 
-    // 4) 마커(HIRO)
+    // 마커(HIRO)
     markerRoot = new THREE.Group();
     scene.add(markerRoot);
 
-    const markerControls = new THREEx.ArMarkerControls(arToolkitContext, markerRoot, {
+    new THREEx.ArMarkerControls(arToolkitContext, markerRoot, {
       type: 'pattern',
       patternUrl: 'https://cdn.jsdelivr.net/npm/@ar-js-org/ar.js@3.4.7/three.js/data/patt.hiro'
     });
 
-    // 5) plane + 텍스처 애니메이션
+    // 텍스처 로드
     const texLoader = new THREE.TextureLoader();
     for (let i = 0; i < TOTAL; i++) {
       texLoader.load(FRAME_URL(i), (tex) => {
@@ -101,10 +98,10 @@
       depthWrite: false
     });
 
-    const geo = new THREE.PlaneGeometry(1.2, 1.2); // 마커 위 크기
+    const geo = new THREE.PlaneGeometry(1.2, 1.2);
     plane = new THREE.Mesh(geo, material);
-    plane.rotation.x = -Math.PI / 2; // 마커 평면에 눕힘
-    plane.position.y = 0.01;         // z-fighting 방지(살짝 띄움)
+    plane.rotation.x = -Math.PI / 2;
+    plane.position.y = 0.01;
     markerRoot.add(plane);
 
     function setFrame(i) {
@@ -114,7 +111,6 @@
       material.needsUpdate = true;
     }
 
-    // 6) render loop
     function animate(now){
       requestAnimationFrame(animate);
 
@@ -125,17 +121,14 @@
       const visible = markerRoot.visible;
       const ready = (loaded === TOTAL);
 
-      // HUD
       log(
 `marker visible: ${visible}
 textures: ${loaded}/${TOTAL}
-frame: ${frame}
-`
+frame: ${frame}`
       );
 
-      // 애니메이션
       if (visible && ready) {
-        if (now - last > 80) { // 12fps
+        if (now - last > 80) {
           setFrame(frame);
           frame = (frame + 1) % TOTAL;
           last = now;
