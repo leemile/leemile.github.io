@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>WebAR PNG Animation (TextureLoader)</title>
+    <title>WebAR Improved (Optimized Tracking and Animation)</title>
     <style>
       .arjs-loader {
         position: absolute; top:0; left:0;
@@ -23,11 +23,11 @@
 
     <a-scene embedded vr-mode-ui="enabled:false"
              renderer="logarithmicDepthBuffer:true"
-             arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;">
+             arjs="trackingMethod: best; sourceType: webcam; detectionMode: mono; debugUIEnabled: false; maxDetectionRate: 30;">
       <!-- NFT Marker -->
       <a-nft id="nftMarker" type="nft" url="AR"
-             smooth="true" smoothCount="10"
-             smoothTolerance="0.01" smoothThreshold="5">
+             smooth="true" smoothCount="5"
+             smoothTolerance="0.02" smoothThreshold="10">
         <a-plane id="animPlane"
                  position="0 0 0" rotation="-90 0 0"
                  width="2" height="2"
@@ -50,7 +50,11 @@
       const loader = new THREE.TextureLoader();
       for (let i = 0; i < totalFrames; i++) {
         const num = String(i).padStart(3, '0');
-        textures[i] = loader.load(`frames/frame_${num}.png`);
+        textures[i] = loader.load(`frames/frame_${num}.png`, (texture) => {
+          texture.minFilter = THREE.LinearFilter; // Mipmap 비활성화
+          texture.magFilter = THREE.LinearFilter;
+          texture.generateMipmaps = false;
+        });
       }
 
       // mesh 준비 감지
@@ -58,33 +62,41 @@
         meshReady = !!plane.getObject3D('mesh');
       });
 
+      // 애니메이션 처리 (requestAnimationFrame 방식)
+      function animate() {
+        if (!meshReady || !interval) return;
+        const mesh = plane.getObject3D('mesh');
+        if (mesh && mesh.material) {
+          mesh.material.map = textures[current];
+          mesh.material.needsUpdate = true;
+          current = (current + 1) % totalFrames;
+        }
+        interval = requestAnimationFrame(animate);
+      }
+
+      // 애니메이션 시작
       function startAnimation() {
         if (!meshReady) {
           setTimeout(startAnimation, 100);
           return;
         }
-        const mesh = plane.getObject3D('mesh');
-        if (!mesh || !mesh.material) return;
         plane.setAttribute('visible', true);
-        if (interval) return;
-
-        interval = setInterval(() => {
-          mesh.material.map = textures[current];
-          mesh.material.needsUpdate = true;
-          current = (current + 1) % totalFrames;
-        }, 100); // 약 10fps
+        if (!interval) interval = requestAnimationFrame(animate);
       }
 
+      // 애니메이션 중지
       function stopAnimation() {
-        clearInterval(interval);
+        cancelAnimationFrame(interval);
         interval = null;
         current = 0;
         plane.setAttribute('visible', false);
       }
 
+      // 마커 이벤트 바인딩
       marker.addEventListener('markerFound', startAnimation);
       marker.addEventListener('markerLost', stopAnimation);
 
+      // 로딩 화면 숨기기
       window.addEventListener('load', () => {
         document.querySelector('.arjs-loader').style.display = 'none';
       });
