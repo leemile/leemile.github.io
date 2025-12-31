@@ -1,16 +1,17 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
-    <meta charset="utf-8">
-    <title>WebAR Final Tracking Fix</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2D PNG Frame Animation</title>
     <style>
       .arjs-loader {
-        position: absolute; top:0; left:0;
-        width:100%; height:100%;
-        background: rgba(0,0,0,0.8);
-        display:flex; justify-content:center; align-items:center;
-        color:white; font-size:1.2em;
-        z-index:9999;
+        position: absolute; top: 0; left: 0;
+        width: 100%; height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        display: flex; justify-content: center; align-items: center;
+        color: white; font-size: 1.2em;
+        z-index: 9999;
       }
       .tracking-status {
         position: absolute; top: 10px; left: 10px;
@@ -22,7 +23,7 @@
     <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
   </head>
-  <body style="margin:0; overflow:hidden;">
+  <body style="margin: 0; overflow: hidden;">
     <div class="arjs-loader">
       Loading AR assets, please wait...
     </div>
@@ -33,8 +34,8 @@
              arjs="trackingMethod: best; sourceType: webcam; detectionMode: mono; debugUIEnabled: false; maxDetectionRate: 30;">
       <!-- NFT Marker -->
       <a-nft id="nftMarker" type="nft" url="AR"
-             smooth="true" smoothCount="15"
-             smoothTolerance="0.02" smoothThreshold="10">
+             smooth="true" smoothCount="10"
+             smoothTolerance="0.05" smoothThreshold="15">
         <a-plane id="animPlane"
                  position="0 0 0" rotation="-90 0 0"
                  width="2" height="2"
@@ -45,94 +46,66 @@
     </a-scene>
 
     <script>
-      const plane = document.querySelector('#animPlane');
-      const marker = document.querySelector('#nftMarker');
-      const trackingStatus = document.getElementById('trackingStatus');
+      const plane = document.querySelector("#animPlane");
+      const marker = document.querySelector("#nftMarker");
+      const trackingStatus = document.getElementById("trackingStatus");
       const totalFrames = 23;
       const textures = [];
-      let current = 0;
+      let currentFrame = 0;
       let interval = null;
-      let meshReady = false;
 
-      // THREE.TextureLoader로 PNG 시퀀스 로딩
+      // PNG 파일 로드
       const loader = new THREE.TextureLoader();
       for (let i = 0; i < totalFrames; i++) {
-        const num = String(i).padStart(3, '0');
-        textures[i] = loader.load(`frames/frame_${num}.png`, (texture) => {
-          console.log(`Texture Loaded - frame_${num}`);
-          texture.minFilter = THREE.LinearFilter; // Mipmap 비활성화
-          texture.magFilter = THREE.LinearFilter;
-          texture.generateMipmaps = false;
-        });
+        const num = String(i).padStart(3, "0");
+        const filePath = `frames/frame_${num}.png`;
+        textures[i] = loader.load(filePath, 
+          (texture) => console.log(`Texture loaded: ${filePath}`),
+          undefined,
+          (error) => console.error(`Failed to load texture: ${filePath}`, error)
+        );
       }
-
-      // mesh 준비 상태 확인
-      plane.addEventListener('model-loaded', () => {
-        const mesh = plane.getObject3D('mesh');
-        console.log('Plane Model Loaded:', mesh ? 'Mesh Ready' : 'Mesh Not Ready');
-        meshReady = !!mesh;
-      });
 
       // 애니메이션 처리
       function animate() {
-        if (!meshReady || !interval) return; // mesh가 준비되지 않으면 종료
-        const mesh = plane.getObject3D('mesh');
-        if (mesh && mesh.material) {
-          mesh.material.map = textures[current];
-          mesh.material.needsUpdate = true;
-          current = (current + 1) % totalFrames;
+        const mesh = plane.getObject3D("mesh");
+        if (!mesh || !mesh.material) {
+          console.error("No mesh or material found.");
+          return;
         }
-        interval = requestAnimationFrame(animate);
+        mesh.material.map = textures[currentFrame];
+        mesh.material.needsUpdate = true;
+        currentFrame = (currentFrame + 1) % totalFrames;
       }
 
       // 애니메이션 시작
       function startAnimation() {
-        if (!meshReady) {
-          console.warn('Mesh not ready yet.');
-          setTimeout(startAnimation, 100); // 재시도
-          return;
-        }
-        plane.setAttribute('visible', true);
-        if (!interval) {
-          interval = requestAnimationFrame(animate);
-        }
-        trackingStatus.style.display = 'none';
+        plane.setAttribute("visible", true);
+        interval = setInterval(animate, 100); // 약 10fps
+        trackingStatus.style.display = "none";
       }
 
       // 애니메이션 중지
       function stopAnimation() {
-        if (interval) {
-          cancelAnimationFrame(interval);
-          interval = null;
-        }
-        current = 0; // 초기화
-        plane.setAttribute('visible', false);
-        trackingStatus.style.display = 'block';
+        clearInterval(interval);
+        interval = null;
+        currentFrame = 0; // 초기화
+        plane.setAttribute("visible", false);
+        trackingStatus.style.display = "block";
+        console.log("Marker Lost!");
       }
 
       // 마커 이벤트 바인딩
-      marker.addEventListener('markerFound', () => {
-        console.log('Marker Found:', marker.id);
-        if (!meshReady) {
-          setTimeout(startAnimation, 100); // 다시 시도
-        } else {
-          startAnimation();
-        }
+      marker.addEventListener("markerFound", () => {
+        console.log("Marker Found!");
+        startAnimation();
       });
 
-      marker.addEventListener('markerLost', () => {
-        console.log('Marker Lost:', marker.id);
-        stopAnimation();
-      });
-
-      // debugging logs
-      window.onerror = function(message, source, lineno, colno, error) {
-        console.error(`Error detected: ${message} at ${lineno}:${colno}`);
-      };
+      marker.addEventListener("markerLost", stopAnimation);
 
       // 로딩 화면 숨기기
-      window.addEventListener('load', () => {
-        document.querySelector('.arjs-loader').style.display = 'none';
+      window.addEventListener("load", () => {
+        document.querySelector(".arjs-loader").style.display = "none";
       });
     </script>
   </body>
