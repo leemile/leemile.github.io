@@ -39,7 +39,7 @@
         <a-plane id="animPlane"
                  position="0 0 0" rotation="-90 0 0"
                  width="2" height="2"
-                 visible="false">
+                 material="transparent:true; visible:false;">
         </a-plane>
       </a-nft>
       <a-entity camera></a-entity>
@@ -59,30 +59,29 @@
       for (let i = 0; i < totalFrames; i++) {
         const num = String(i).padStart(3, "0");
         const filePath = `frames/frame_${num}.png`;
-        textures[i] = loader.load(filePath, 
-          (texture) => console.log(`Texture loaded: ${filePath}`),
-          undefined,
+        textures.push(loader.load(filePath, 
+          () => console.log(`Texture loaded: ${filePath}`), 
+          undefined, 
           (error) => console.error(`Failed to load texture: ${filePath}`, error)
-        );
+        ));
       }
 
       // 애니메이션 처리
-      function animate() {
-        const mesh = plane.getObject3D("mesh");
-        if (!mesh || !mesh.material) {
-          console.error("No mesh or material found.");
+      function animateFrame() {
+        if (!plane) {
+          console.error("Plane object not found!");
           return;
         }
-        mesh.material.map = textures[currentFrame];
-        mesh.material.needsUpdate = true;
+        plane.setAttribute("material", `src: ${textures[currentFrame].image.src}; visible:true`);
         currentFrame = (currentFrame + 1) % totalFrames;
       }
 
       // 애니메이션 시작
       function startAnimation() {
-        plane.setAttribute("visible", true);
-        interval = setInterval(animate, 100); // 약 10fps
-        trackingStatus.style.display = "none";
+        if (!interval) {
+          interval = setInterval(animateFrame, 100); // 약 10fps
+        }
+        trackingStatus.style.display = "none"; // Tracking 상태 숨기기
       }
 
       // 애니메이션 중지
@@ -90,8 +89,8 @@
         clearInterval(interval);
         interval = null;
         currentFrame = 0; // 초기화
-        plane.setAttribute("visible", false);
-        trackingStatus.style.display = "block";
+        plane.setAttribute("material", "visible:false"); // Plane 숨기기
+        trackingStatus.style.display = "block"; // 상황 출력
         console.log("Marker Lost!");
       }
 
