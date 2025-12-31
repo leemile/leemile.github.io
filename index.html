@@ -18,9 +18,7 @@
       border-radius: 5px; z-index: 10000; display: none;
     }
   </style>
-  <!-- A-Frame 먼저 -->
   <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
-  <!-- AR.js NFT (A-Frame 이후) -->
   <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js/aframe/build/aframe-ar-nft.js"></script>
 </head>
 <body>
@@ -41,17 +39,17 @@
     <a-nft
       id="nftMarker"
       type="nft"
-      url="https://leemile.github.io/AR"  <!-- 절대경로 -->
+      url="https://leemile.github.io/AR"
       smooth="true"
-      smoothCount="5"
-      smoothTolerance="0.08"
-      smoothThreshold="2">
+      smoothCount="3"
+      smoothTolerance="0.12"
+      smoothThreshold="1">
       <a-plane
         id="animPlane"
         position="0 0 0"
         rotation="-90 0 0"
-        width="2"
-        height="2"
+        width="3"
+        height="3"
         visible="false">
       </a-plane>
     </a-nft>
@@ -78,7 +76,6 @@
       loaderEl.textContent = '로딩 오류: 콘솔을 확인하세요.';
     };
 
-    // plane mesh 준비 기다리기
     function waitForPlaneMesh(el) {
       return new Promise((resolve) => {
         const check = () => {
@@ -94,7 +91,7 @@
       });
     }
 
-    // 텍스처 로드 (절대경로)
+    // 텍스처 로드
     const loader = new THREE.TextureLoader();
     let loadedCount = 0;
     for (let i = 0; i < totalFrames; i++) {
@@ -119,7 +116,8 @@
     function tryStart() {
       if (playing) return;
       if (!planeMesh || !texturesReady) {
-        console.warn('Not ready yet (mesh or textures)');
+        console.warn('Not ready yet (mesh or textures). retry...');
+        setTimeout(tryStart, 100);
         return;
       }
       if (!material) {
@@ -133,6 +131,7 @@
       plane.setAttribute('visible', true);
       trackingStatus.style.display = 'none';
       playing = true;
+      console.log('Animation start');
       animate();
     }
 
@@ -147,6 +146,7 @@
       }
       plane.setAttribute('visible', false);
       trackingStatus.style.display = 'block';
+      console.log('Animation stop');
     }
 
     marker.addEventListener('markerFound', () => {
