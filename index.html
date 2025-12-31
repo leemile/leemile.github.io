@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>WebAR Improved (Optimized Tracking and Animation)</title>
+    <title>WebAR Fixed Animation</title>
     <style>
       .arjs-loader {
         position: absolute; top:0; left:0;
@@ -62,9 +62,9 @@
         meshReady = !!plane.getObject3D('mesh');
       });
 
-      // 애니메이션 처리 (requestAnimationFrame 방식)
+      // 애니메이션 처리 (requestAnimationFrame)
       function animate() {
-        if (!meshReady || !interval) return;
+        if (!meshReady || !interval) return; // mesh가 준비되지 않으면 종료
         const mesh = plane.getObject3D('mesh');
         if (mesh && mesh.material) {
           mesh.material.map = textures[current];
@@ -77,18 +77,25 @@
       // 애니메이션 시작
       function startAnimation() {
         if (!meshReady) {
-          setTimeout(startAnimation, 100);
+          setTimeout(startAnimation, 100); // mesh 준비를 기다림
           return;
         }
+        const mesh = plane.getObject3D('mesh');
+        if (!mesh || !mesh.material) return; // 유효한 mesh 확인
+
         plane.setAttribute('visible', true);
-        if (!interval) interval = requestAnimationFrame(animate);
+        if (!interval) {
+          interval = requestAnimationFrame(animate);
+        }
       }
 
       // 애니메이션 중지
       function stopAnimation() {
-        cancelAnimationFrame(interval);
-        interval = null;
-        current = 0;
+        if (interval) {
+          cancelAnimationFrame(interval);
+          interval = null;
+        }
+        current = 0; // 초기화
         plane.setAttribute('visible', false);
       }
 
