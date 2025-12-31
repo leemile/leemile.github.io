@@ -3,28 +3,19 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no" />
-  <title>AR.js THREE - Video Background FIX</title>
+  <title>AR.js THREE - NFT Frame Animation</title>
   <style>
     html, body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#000; }
-
-    /* 비디오를 배경으로 */
     #ar-video {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100vw; height: 100vh;
-      object-fit: cover;
-      z-index: 1;
-      background:#000;
+      position: fixed; top:0; left:0; width:100vw; height:100vh;
+      object-fit: cover; z-index: 1; background:#000;
     }
-
-    /* WebGL 캔버스를 위로 */
     canvas { position: fixed !important; top:0; left:0; z-index: 2; }
-
     #hud {
-      position: fixed; top: 10px; left: 10px; z-index: 9999;
-      font: 12px/1.35 monospace; color: #0f0;
-      background: rgba(0,0,0,.6); padding: 10px; border-radius: 8px; white-space: pre;
-      max-width: 94vw;
+      position:fixed; left:10px; top:10px; z-index:9999;
+      font:12px/1.35 monospace; color:#0f0;
+      background:rgba(0,0,0,.6); padding:10px; border-radius:8px; white-space:pre;
+      max-width:94vw;
     }
   </style>
 
@@ -42,8 +33,12 @@
     const TOTAL = 22;
     const FRAME_URL = (i) => `https://leemile.github.io/frames/frame_${String(i).padStart(3,'0')}.png`;
 
+    // ✅ 당신 NFT 데이터 베이스 경로
+    // AR.js는 여기서 .fset / .iset / .fset3 등을 로드합니다.
+    const NFT_BASE = 'https://leemile.github.io/AR';
+
     let renderer, scene, camera;
-    let arToolkitSource, arToolkitContext;
+    let arToolkitContext;
     let markerRoot;
 
     let plane, material;
@@ -63,7 +58,7 @@ frame: ${frame}
 ${extra}`;
     }
 
-    // 1) THREE 기본
+    // 1) THREE
     scene = new THREE.Scene();
     camera = new THREE.Camera();
     scene.add(camera);
@@ -73,7 +68,9 @@ ${extra}`;
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    // 2) getUserMedia로 비디오를 직접 붙임 (검은 화면 해결 핵심)
+    window.addEventListener('resize', () => renderer.setSize(window.innerWidth, window.innerHeight));
+
+    // 2) 비디오 시작
     async function startVideo() {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment' },
@@ -84,11 +81,11 @@ ${extra}`;
       hud('video started');
     }
 
-    // 3) AR 컨텍스트/마커 세팅
+    // 3) AR 컨텍스트 + NFT 컨트롤
     function setupAR() {
       arToolkitContext = new THREEx.ArToolkitContext({
         cameraParametersUrl: 'https://cdn.jsdelivr.net/npm/@ar-js-org/ar.js@3.4.7/three.js/data/camera_para.dat',
-        detectionMode: 'mono'
+        detectionMode: 'mono',
       });
 
       arToolkitContext.init(() => {
@@ -98,9 +95,10 @@ ${extra}`;
       markerRoot = new THREE.Group();
       scene.add(markerRoot);
 
+      // ✅ NFT 마커 컨트롤 (type: 'nft')
       new THREEx.ArMarkerControls(arToolkitContext, markerRoot, {
-        type: 'pattern',
-        patternUrl: 'https://cdn.jsdelivr.net/npm/@ar-js-org/ar.js@3.4.7/three.js/data/patt.hiro'
+        type: 'nft',
+        descriptorsUrl: NFT_BASE
       });
 
       // plane
@@ -110,19 +108,21 @@ ${extra}`;
         depthTest: false,
         depthWrite: false
       });
-
       plane = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 1.2), material);
       plane.rotation.x = -Math.PI / 2;
       plane.position.y = 0.01;
       markerRoot.add(plane);
+    }
 
-      // 텍스처
+    // 4) 텍스처 로드
+    function loadTextures() {
       const texLoader = new THREE.TextureLoader();
+      texLoader.setCrossOrigin('anonymous');
       for (let i = 0; i < TOTAL; i++) {
         texLoader.load(FRAME_URL(i), (tex) => {
           textures[i] = tex;
           loaded++;
-        });
+        }, undefined, (e) => console.error('texture fail', i, e));
       }
     }
 
@@ -133,12 +133,6 @@ ${extra}`;
       material.needsUpdate = true;
     }
 
-    function onResize() {
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    }
-    window.addEventListener('resize', onResize);
-
-    // 4) 루프: video를 소스로 AR 업데이트
     function animate(now) {
       requestAnimationFrame(animate);
 
@@ -161,6 +155,7 @@ ${extra}`;
     (async () => {
       try {
         await startVideo();
+        loadTextures();
         setupAR();
         animate(0);
       } catch (e) {
