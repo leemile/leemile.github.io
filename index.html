@@ -1,210 +1,176 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>2D PNG Frame Animation (NFT)</title>
-  <style>
-    body { margin:0; overflow:hidden; background:#000; }
-    .arjs-loader { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
-      background: rgba(0,0,0,0.85); color: white; font-size: 1.1em; z-index: 9999; }
-    .tracking-status { position: fixed; top: 10px; left: 10px; padding: 10px;
-      background: rgba(0,0,0,0.6); color: white; border-radius: 5px; z-index: 10000; display: none; }
-    .debug { position: fixed; bottom: 10px; left: 10px; color: #0f0;
-      background: rgba(0,0,0,0.5); padding: 6px 10px; border-radius: 4px; font-size: 12px; z-index: 10000; }
-  </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+  <title>AR Animation Stable</title>
   <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js/aframe/build/aframe-ar-nft.js"></script>
+  <style>
+    body { margin:0; overflow:hidden; background:#000; }
+    #loader {
+      position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+      background:#000; color:#fff; z-index:999;
+    }
+    #debug {
+      position:fixed; bottom:10px; left:10px; color:#0f0;
+      background:rgba(0,0,0,0.5); padding:6px 10px; border-radius:4px;
+      font-size:12px; z-index:1000;
+    }
+  </style>
 </head>
 <body>
-  <div class="arjs-loader">NFT 마커 데이터를 로딩 중입니다…</div>
-  <div class="tracking-status" id="trackingStatus">Tracking Lost</div>
-  <div class="debug" id="debug">init...</div>
+  <div id="loader">시스템 안정화 로딩 중...</div>
+  <div id="debug">init...</div>
 
-  <a-scene embedded vr-mode-ui="enabled:false" renderer="logarithmicDepthBuffer:true"
-    arjs="trackingMethod: best; sourceType: webcam;
-          sourceWidth: 1280; sourceHeight: 720;
-          displayWidth: 1280; displayHeight: 720;
-          detectionMode: mono; debugUIEnabled: false; maxDetectionRate: 30;">
-    <a-nft id="nftMarker" type="nft" url="https://leemile.github.io/AR"
-      smooth="true" smoothCount="3" smoothTolerance="0.12" smoothThreshold="1">
-      <a-plane id="animPlane"
+  <a-scene
+    embedded
+    vr-mode-ui="enabled:false"
+    renderer="logarithmicDepthBuffer:true; antialias:true; alpha:true; precision:highp; colorManagement:true;"
+    arjs="trackingMethod: best;
+          sourceType: webcam;
+          sourceWidth: 640; sourceHeight: 480;
+          displayWidth: 640; displayHeight: 480;
+          debugUIEnabled: false;">
+
+    <a-nft
+      id="nft-target"
+      type="nft"
+      url="https://leemile.github.io/AR"
+      smooth="true"
+      smoothCount="5"
+      smoothTolerance="0.08"
+      smoothThreshold="2">
+      <!-- 마커 위에 정확히 놓이도록 위치/크기 조정 -->
+      <a-plane
+        id="ani-plane"
         position="0 0 0.02"
-        rotation="0 0 0"
-        width="4.5"
-        height="4.5"
+        rotation="-90 0 0"
+        width="2.5"
+        height="2.5"
         visible="false"
-        material="color: #000000; transparent:true; opacity:1; side: double; alphaTest:0.01">
+        material="transparent:true; shader:flat; side:double; opacity:1;">
       </a-plane>
     </a-nft>
-    <a-entity id="cameraRig" camera position="0 0 0"></a-entity>
+
+    <a-entity camera></a-entity>
   </a-scene>
 
   <script>
-    const plane = document.querySelector('#animPlane');
-    const marker = document.querySelector('#nftMarker');
-    const trackingStatus = document.getElementById('trackingStatus');
-    const loaderEl = document.querySelector('.arjs-loader');
+    const nft = document.querySelector('#nft-target');
+    const plane = document.querySelector('#ani-plane');
+    const loaderEl = document.getElementById('loader');
     const debugEl = document.getElementById('debug');
-    const totalFrames = 23;
+
+    const totalFrames = 22; // frame_000 ~ frame_021
     const textures = [];
     let texturesReady = false;
+    let animationId = null;
+    let currentIdx = 0;
+    let lastUpdate = 0;
     let planeMesh = null;
-    let material = null;
-    let currentFrame = 0;
-    let rafId = null;
     let playing = false;
-    let lostTimer = null;
-    let forceShow = false; // f 키 토글
 
-    const setDebug = (msg) => { debugEl.textContent = msg; };
+    const setDebug = (msg) => debugEl.textContent = msg;
 
-    function waitForPlaneMesh(el) {
+    // plane mesh 준비 대기
+    function waitForPlaneMesh() {
       return new Promise((resolve) => {
         const check = () => {
-          const mesh = el.getObject3D('mesh');
+          const mesh = plane.getObject3D('mesh');
           if (mesh) return resolve(mesh);
           setTimeout(check, 50);
         };
-        el.addEventListener('object3dset', (e) => {
+        plane.addEventListener('object3dset', (e) => {
           if (e.detail.type === 'mesh') check();
         });
-        el.addEventListener('loaded', check);
+        plane.addEventListener('loaded', check);
         check();
       });
     }
 
-    // 텍스처 로드
-    const loader = new THREE.TextureLoader();
-    let loadedCount = 0;
+    // 텍스처 로드 (절대경로)
+    const texLoader = new THREE.TextureLoader();
+    let loaded = 0;
     for (let i = 0; i < totalFrames; i++) {
       const num = String(i).padStart(3, '0');
-      const filePath = `https://leemile.github.io/frames/frame_${num}.png`;
-      textures[i] = loader.load(
-        filePath,
+      const url = `https://leemile.github.io/frames/frame_${num}.png`;
+      textures[i] = texLoader.load(
+        url,
         () => {
-          if (++loadedCount === totalFrames) {
+          if (++loaded === totalFrames) {
             texturesReady = true;
-            console.log('All textures loaded');
             setDebug('Textures ready');
           }
         },
         undefined,
-        (error) => console.error(`Failed to load texture: ${filePath}`, error)
+        (err) => console.error('Texture load error:', url, err)
       );
     }
 
-    function animate() {
-      if (!playing || !planeMesh || !material) return;
-      material.map = textures[currentFrame];
-      material.needsUpdate = true;
-      setDebug(`Playing frame ${currentFrame}${forceShow ? ' (force)' : ''}`);
-      currentFrame = (currentFrame + 1) % totalFrames;
-      rafId = requestAnimationFrame(animate);
+    function showFrame(idx) {
+      if (!planeMesh || !textures[idx]) return;
+      planeMesh.material.map = textures[idx];
+      planeMesh.material.needsUpdate = true;
     }
 
-    function showFirstFrame() {
-      if (planeMesh && material && textures[0]) {
-        material.map = textures[0];
-        material.needsUpdate = true;
+    function animate(time) {
+      if (!playing) return;
+      if (time - lastUpdate > 80) { // 약 12 FPS
+        showFrame(currentIdx);
+        currentIdx = (currentIdx + 1) % totalFrames;
+        lastUpdate = time;
+        setDebug(`Playing frame ${currentIdx}`);
       }
+      animationId = requestAnimationFrame(animate);
     }
 
-    function applyRenderOrder() {
-      if (plane.object3D) {
-        plane.object3D.renderOrder = 999;
-        plane.object3D.traverse(obj => { if (obj.isMesh) obj.renderOrder = 999; });
-      }
-      if (planeMesh) {
-        planeMesh.renderOrder = 999;
-      }
-    }
-
-    function tryStart() {
+    function startAnim() {
+      if (playing) return;
       if (!planeMesh || !texturesReady) {
-        setDebug('Waiting ready...');
-        setTimeout(tryStart, 100);
+        setDebug('Waiting mesh/tex...');
+        setTimeout(startAnim, 100);
         return;
       }
-      if (!material) {
-        material = new THREE.MeshBasicMaterial({
-          map: textures[0],
-          transparent: true,
-          side: THREE.DoubleSide,
-          alphaTest: 0.01,
-          depthTest: false,
-          depthWrite: false
-        });
-        planeMesh.material = material;
-        applyRenderOrder();
-      }
-      showFirstFrame();
       plane.setAttribute('visible', true);
-      trackingStatus.style.display = forceShow ? 'none' : 'none';
-      if (playing) return;
+      showFrame(0);
       playing = true;
-      console.log('Animation start');
-      setDebug(`Playing frame ${currentFrame}${forceShow ? ' (force)' : ''}`);
-      animate();
+      lastUpdate = 0;
+      animationId = requestAnimationFrame(animate);
+      setDebug('Animation start');
     }
 
-    function stop() {
-      if (forceShow) return; // 강제 표시 모드면 멈추지 않음
-      if (rafId) cancelAnimationFrame(rafId);
-      rafId = null;
+    function stopAnim() {
       playing = false;
-      currentFrame = 0;
-      showFirstFrame();
+      if (animationId) cancelAnimationFrame(animationId);
+      animationId = null;
       plane.setAttribute('visible', false);
-      trackingStatus.style.display = 'block';
-      console.log('Animation stop');
-      setDebug('Stopped');
+      setDebug('Animation stop');
     }
 
-    marker.addEventListener('markerFound', () => {
-      console.log('Marker Found');
-      setDebug('Found');
-      if (lostTimer) { clearTimeout(lostTimer); lostTimer = null; }
-      tryStart();
+    nft.addEventListener('markerFound', () => {
+      startAnim();
     });
 
-    marker.addEventListener('markerLost', () => {
-      console.log('Marker Lost (debounce start)');
-      setDebug('Lost? wait');
-      if (lostTimer) clearTimeout(lostTimer);
-      lostTimer = setTimeout(() => {
-        console.log('Marker Lost (confirmed)');
-        stop();
-      }, 2000);
+    // Lost 디바운스 1초
+    nft.addEventListener('markerLost', () => {
+      setTimeout(() => { if (!playing) return; stopAnim(); }, 1000);
     });
 
-    waitForPlaneMesh(plane).then((mesh) => {
-      console.log('Plane mesh ready');
-      planeMesh = mesh;
-      setDebug('Mesh ready');
-      applyRenderOrder();
-    });
-
-    document.querySelector('a-scene').addEventListener('loaded', () => {
+    window.addEventListener('arjs-nft-loaded', () => {
       loaderEl.style.display = 'none';
     });
 
-    // f 키로 강제 표시/해제 (마커 무시)
-    window.addEventListener('keydown', (e) => {
-      if (e.key.toLowerCase() === 'f') {
-        forceShow = !forceShow;
-        if (forceShow) {
-          setDebug('Force show ON');
-          // 카메라 앞에 강제 위치
-          plane.object3D.position.set(0, 0, -3);
-          plane.object3D.rotation.set(0, 0, 0);
-          plane.setAttribute('visible', true);
-          tryStart();
-        } else {
-          setDebug('Force show OFF');
-          stop();
-        }
+    waitForPlaneMesh().then((mesh) => {
+      planeMesh = mesh;
+      // 항상 위에 그리기
+      plane.object3D.renderOrder = 999;
+      plane.object3D.traverse(obj => { if (obj.isMesh) obj.renderOrder = 999; });
+      if (planeMesh.material) {
+        planeMesh.material.depthTest = false;
+        planeMesh.material.depthWrite = false;
       }
+      setDebug('Mesh ready');
     });
   </script>
 </body>
