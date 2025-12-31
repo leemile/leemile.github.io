@@ -17,6 +17,11 @@
       padding: 10px; background: rgba(0,0,0,0.6); color: white;
       border-radius: 5px; z-index: 10000; display: none;
     }
+    .debug {
+      position: fixed; bottom: 10px; left: 10px; color: #0f0;
+      background: rgba(0,0,0,0.5); padding: 6px 10px; border-radius: 4px;
+      font-size: 12px; z-index: 10000;
+    }
   </style>
   <!-- A-Frame 먼저 -->
   <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
@@ -26,6 +31,7 @@
 <body>
   <div class="arjs-loader">NFT 마커 데이터를 로딩 중입니다…</div>
   <div class="tracking-status" id="trackingStatus">Tracking Lost</div>
+  <div class="debug" id="debug">init...</div>
 
   <a-scene
     embedded
@@ -48,11 +54,12 @@
       smoothThreshold="1">
       <a-plane
         id="animPlane"
-        position="0 0 0"
-        rotation="-90 0 0"
+        position="0 0 0.01"
+        rotation="0 0 0"
         width="3.2"
         height="3.2"
-        visible="false">
+        visible="false"
+        material="color: #ffffff; transparent:true; opacity:1; side: double; alphaTest:0.01">
       </a-plane>
     </a-nft>
     <a-entity camera></a-entity>
@@ -63,6 +70,7 @@
     const marker = document.querySelector('#nftMarker');
     const trackingStatus = document.getElementById('trackingStatus');
     const loaderEl = document.querySelector('.arjs-loader');
+    const debugEl = document.getElementById('debug');
 
     const totalFrames = 23;
     const textures = [];
@@ -74,9 +82,12 @@
     let playing = false;
     let lostTimer = null;
 
+    function setDebug(msg) { debugEl.textContent = msg; }
+
     window.onerror = (msg, src, line, col, err) => {
       console.error('Global Error:', msg, src, line, col, err);
       loaderEl.textContent = '로딩 오류: 콘솔을 확인하세요.';
+      setDebug('Error: ' + msg);
     };
 
     function waitForPlaneMesh(el) {
@@ -102,7 +113,7 @@
       const filePath = `https://leemile.github.io/frames/frame_${num}.png`;
       textures[i] = loader.load(
         filePath,
-        () => { if (++loadedCount === totalFrames) { texturesReady = true; console.log('All textures loaded'); } },
+        () => { if (++loadedCount === totalFrames) { texturesReady = true; console.log('All textures loaded'); setDebug('Textures ready'); } },
         undefined,
         (error) => console.error(`Failed to load texture: ${filePath}`, error)
       );
@@ -120,6 +131,7 @@
       if (playing) return;
       if (!planeMesh || !texturesReady) {
         console.warn('Not ready yet (mesh or textures). retry...');
+        setDebug('Waiting ready...');
         setTimeout(tryStart, 100);
         return;
       }
@@ -128,6 +140,7 @@
           map: textures[0],
           transparent: true,
           side: THREE.DoubleSide,
+          alphaTest: 0.01
         });
         planeMesh.material = material;
       }
@@ -135,6 +148,7 @@
       trackingStatus.style.display = 'none';
       playing = true;
       console.log('Animation start');
+      setDebug('Playing');
       animate();
     }
 
@@ -150,27 +164,31 @@
       plane.setAttribute('visible', false);
       trackingStatus.style.display = 'block';
       console.log('Animation stop');
+      setDebug('Stopped');
     }
 
     marker.addEventListener('markerFound', () => {
       console.log('Marker Found');
+      setDebug('Found');
       if (lostTimer) { clearTimeout(lostTimer); lostTimer = null; }
       tryStart();
     });
 
-    // Lost 시 400ms 지연 후 진짜 Lost로 처리
+    // Lost 시 1000ms 지연 후 진짜 Lost로 처리
     marker.addEventListener('markerLost', () => {
       console.log('Marker Lost (debounce start)');
+      setDebug('Lost? wait');
       if (lostTimer) clearTimeout(lostTimer);
       lostTimer = setTimeout(() => {
         console.log('Marker Lost (confirmed)');
         stop();
-      }, 400);
+      }, 1000);
     });
 
     waitForPlaneMesh(plane).then((mesh) => {
       console.log('Plane mesh ready');
       planeMesh = mesh;
+      setDebug('Mesh ready');
     });
 
     document.querySelector('a-scene').addEventListener('loaded', () => {
