@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>WebAR Fixed Animation</title>
+    <title>WebAR Improved Tracking</title>
     <style>
       .arjs-loader {
         position: absolute; top:0; left:0;
@@ -12,6 +12,12 @@
         color:white; font-size:1.2em;
         z-index:9999;
       }
+      .tracking-status {
+        position: absolute; top: 10px; left: 10px;
+        color: white; background: rgba(0, 0, 0, 0.6); padding: 10px;
+        border-radius: 5px; font-size: 1em;
+        z-index: 10000; display: none;
+      }
     </style>
     <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
@@ -20,14 +26,15 @@
     <div class="arjs-loader">
       Loading AR assets, please wait...
     </div>
+    <div class="tracking-status" id="trackingStatus">Tracking Lost</div>
 
     <a-scene embedded vr-mode-ui="enabled:false"
              renderer="logarithmicDepthBuffer:true"
              arjs="trackingMethod: best; sourceType: webcam; detectionMode: mono; debugUIEnabled: false; maxDetectionRate: 30;">
       <!-- NFT Marker -->
       <a-nft id="nftMarker" type="nft" url="AR"
-             smooth="true" smoothCount="5"
-             smoothTolerance="0.02" smoothThreshold="10">
+             smooth="true" smoothCount="8"
+             smoothTolerance="0.05" smoothThreshold="8">
         <a-plane id="animPlane"
                  position="0 0 0" rotation="-90 0 0"
                  width="2" height="2"
@@ -40,6 +47,7 @@
     <script>
       const plane = document.querySelector('#animPlane');
       const marker = document.querySelector('#nftMarker');
+      const trackingStatus = document.getElementById('trackingStatus');
       const totalFrames = 23;
       const textures = [];
       let current = 0;
@@ -87,6 +95,8 @@
         if (!interval) {
           interval = requestAnimationFrame(animate);
         }
+        // Tracking 상태 업데이트
+        trackingStatus.style.display = 'none';
       }
 
       // 애니메이션 중지
@@ -97,6 +107,8 @@
         }
         current = 0; // 초기화
         plane.setAttribute('visible', false);
+        // Tracking 상태 표기
+        trackingStatus.style.display = 'block';
       }
 
       // 마커 이벤트 바인딩
