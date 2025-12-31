@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no" />
-  <title>AR.js THREE - NFT PNG Animation</title>
+  <title>AR.js THREE - Final NFT Animation</title>
   <style>
     html, body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#000; }
     #video {
@@ -15,10 +15,10 @@
     }
     canvas { position: fixed !important; inset: 0; z-index: 2; }
     #hud {
-      position: fixed; left: 10px; top: 10px; z-index: 9999;
-      font: 12px/1.35 monospace; color:#0f0;
-      background: rgba(0,0,0,.6); padding: 10px; border-radius: 8px; white-space: pre;
-      max-width: 94vw;
+      position: fixed; left:10px; top:10px; z-index:999;
+      font:12px/1.35 monospace; color:#0f0;
+      background:rgba(0,0,0,.6); padding:10px; border-radius:8px; white-space:pre;
+      max-width:94vw;
     }
   </style>
 
@@ -33,9 +33,8 @@
     const hudEl = document.getElementById('hud');
     const videoEl = document.getElementById('video');
 
-    const NFT_BASE = 'https://leemile.github.io/AR';
-    const CAMERA_PARA = 'https://leemile.github.io/data/camera_para.dat';
-
+    const NFT_BASE = 'https://leemile.github.io/AR'; // ✅ NFT 데이터 경로
+    const CAMERA_PARA = 'https://leemile.github.io/camera_para.dat'; // ✅ camera_para.dat 경로
     const TOTAL = 22;
     const FPS = 12;
     const FRAME_MS = 1000 / FPS;
@@ -52,7 +51,7 @@
     let frame = 0;
     let lastSwap = 0;
 
-    function hud(extra='') {
+    function hud(extra = '') {
       hudEl.textContent =
 `video: ${videoEl.readyState} (${videoEl.videoWidth}x${videoEl.videoHeight})
 textures: ${loaded}/${TOTAL}
@@ -75,7 +74,6 @@ ${extra}`;
       scene = new THREE.Scene();
       camera = new THREE.Camera();
       scene.add(camera);
-
       renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
       renderer.setClearColor(new THREE.Color('black'), 0);
       renderer.setSize(window.innerWidth, window.innerHeight);
@@ -101,7 +99,8 @@ ${extra}`;
     function initAR() {
       arContext = new THREEx.ArToolkitContext({
         cameraParametersUrl: CAMERA_PARA,
-        detectionMode: 'mono'
+        detectionMode: 'mono',
+        sourceType: 'webcam'
       });
 
       arContext.init(() => {
