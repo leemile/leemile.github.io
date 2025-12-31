@@ -18,7 +18,9 @@
       border-radius: 5px; z-index: 10000; display: none;
     }
   </style>
+  <!-- A-Frame 먼저 -->
   <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+  <!-- AR.js NFT (A-Frame 이후) -->
   <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js/aframe/build/aframe-ar-nft.js"></script>
 </head>
 <body>
@@ -48,8 +50,8 @@
         id="animPlane"
         position="0 0 0"
         rotation="-90 0 0"
-        width="3"
-        height="3"
+        width="3.2"
+        height="3.2"
         visible="false">
       </a-plane>
     </a-nft>
@@ -70,6 +72,7 @@
     let currentFrame = 0;
     let rafId = null;
     let playing = false;
+    let lostTimer = null;
 
     window.onerror = (msg, src, line, col, err) => {
       console.error('Global Error:', msg, src, line, col, err);
@@ -91,7 +94,7 @@
       });
     }
 
-    // 텍스처 로드
+    // 텍스처 로드 (절대경로)
     const loader = new THREE.TextureLoader();
     let loadedCount = 0;
     for (let i = 0; i < totalFrames; i++) {
@@ -151,11 +154,18 @@
 
     marker.addEventListener('markerFound', () => {
       console.log('Marker Found');
+      if (lostTimer) { clearTimeout(lostTimer); lostTimer = null; }
       tryStart();
     });
+
+    // Lost 시 400ms 지연 후 진짜 Lost로 처리
     marker.addEventListener('markerLost', () => {
-      console.log('Marker Lost');
-      stop();
+      console.log('Marker Lost (debounce start)');
+      if (lostTimer) clearTimeout(lostTimer);
+      lostTimer = setTimeout(() => {
+        console.log('Marker Lost (confirmed)');
+        stop();
+      }, 400);
     });
 
     waitForPlaneMesh(plane).then((mesh) => {
