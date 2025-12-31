@@ -1,93 +1,171 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8">
-    <title>WebAR PNG Animation (TextureLoader)</title>
-    <style>
-      .arjs-loader {
-        position: absolute; top:0; left:0;
-        width:100%; height:100%;
-        background: rgba(0,0,0,0.8);
-        display:flex; justify-content:center; align-items:center;
-        color:white; font-size:1.2em;
-        z-index:9999;
-      }
-    </style>
-    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
-    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
-  </head>
-  <body style="margin:0; overflow:hidden;">
-    <div class="arjs-loader">
-      Loading AR assets, please wait...
-    </div>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>2D PNG Frame Animation (NFT)</title>
+  <style>
+    body { margin:0; overflow:hidden; background:#000; }
+    .arjs-loader {
+      position: fixed; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.85); color: white; font-size: 1.1em;
+      z-index: 9999;
+    }
+    .tracking-status {
+      position: fixed; top: 10px; left: 10px;
+      padding: 10px; background: rgba(0,0,0,0.6); color: white;
+      border-radius: 5px; z-index: 10000; display: none;
+    }
+  </style>
+  <!-- A-Frame 먼저 -->
+  <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+  <!-- AR.js NFT (A-Frame 이후) -->
+  <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js/aframe/build/aframe-ar-nft.js"></script>
+</head>
+<body>
+  <div class="arjs-loader">NFT 마커 데이터를 로딩 중입니다…</div>
+  <div class="tracking-status" id="trackingStatus">Tracking Lost</div>
 
-    <a-scene embedded vr-mode-ui="enabled:false"
-             renderer="logarithmicDepthBuffer:true"
-             arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;">
-      <!-- NFT Marker -->
-      <a-nft id="nftMarker" type="nft" url="AR"
-             smooth="true" smoothCount="10"
-             smoothTolerance="0.01" smoothThreshold="5">
-        <a-plane id="animPlane"
-                 position="0 0 0" rotation="-90 0 0"
-                 width="2" height="2"
-                 visible="false">
-        </a-plane>
-      </a-nft>
-      <a-entity camera></a-entity>
-    </a-scene>
+  <a-scene
+    embedded
+    vr-mode-ui="enabled:false"
+    renderer="logarithmicDepthBuffer:true"
+    arjs="trackingMethod: best;
+          sourceType: webcam;
+          sourceWidth: 640; sourceHeight: 480;
+          displayWidth: 640; displayHeight: 480;
+          detectionMode: mono;
+          debugUIEnabled: false;
+          maxDetectionRate: 30;">
+    <a-nft
+      id="nftMarker"
+      type="nft"
+      url="https://leemile.github.io/AR"  <!-- 절대경로로 고정 -->
+      smooth="true"
+      smoothCount="10"
+      smoothTolerance="0.05"
+      smoothThreshold="15">
+      <a-plane
+        id="animPlane"
+        position="0 0 0"
+        rotation="-90 0 0"
+        width="2"
+        height="2"
+        visible="false">
+      </a-plane>
+    </a-nft>
+    <a-entity camera></a-entity>
+  </a-scene>
 
-    <script>
-      const plane = document.querySelector('#animPlane');
-      const marker = document.querySelector('#nftMarker');
-      const totalFrames = 23;
-      const textures = [];
-      let current = 0;
-      let interval = null;
-      let meshReady = false;
+  <script>
+    const plane = document.querySelector('#animPlane');
+    const marker = document.querySelector('#nftMarker');
+    const trackingStatus = document.getElementById('trackingStatus');
+    const loaderEl = document.querySelector('.arjs-loader');
 
-      // THREE.TextureLoader로 PNG 시퀀스 로딩
-      const loader = new THREE.TextureLoader();
-      for (let i = 0; i < totalFrames; i++) {
-        const num = String(i).padStart(3, '0');
-        textures[i] = loader.load(`frames/frame_${num}.png`);
-      }
+    const totalFrames = 23;
+    const textures = [];
+    let texturesReady = false;
+    let planeMesh = null;
+    let material = null;
+    let currentFrame = 0;
+    let rafId = null;
+    let playing = false;
 
-      // mesh 준비 감지
-      plane.addEventListener('model-loaded', () => {
-        meshReady = !!plane.getObject3D('mesh');
+    window.onerror = (msg, src, line, col, err) => {
+      console.error('Global Error:', msg, src, line, col, err);
+      loaderEl.textContent = '로딩 오류: 콘솔을 확인하세요.';
+    };
+
+    // plane mesh 준비 기다리기
+    function waitForPlaneMesh(el) {
+      return new Promise((resolve) => {
+        const check = () => {
+          const mesh = el.getObject3D('mesh');
+          if (mesh) return resolve(mesh);
+          setTimeout(check, 50);
+        };
+        el.addEventListener('object3dset', (e) => {
+          if (e.detail.type === 'mesh') check();
+        });
+        el.addEventListener('loaded', check);
+        check();
       });
+    }
 
-      function startAnimation() {
-        if (!meshReady) {
-          setTimeout(startAnimation, 100);
-          return;
-        }
-        const mesh = plane.getObject3D('mesh');
-        if (!mesh || !mesh.material) return;
-        plane.setAttribute('visible', true);
-        if (interval) return;
+    // 텍스처 로드 (절대경로)
+    const loader = new THREE.TextureLoader();
+    let loadedCount = 0;
+    for (let i = 0; i < totalFrames; i++) {
+      const num = String(i).padStart(3, '0');
+      const filePath = `https://leemile.github.io/frames/frame_${num}.png`;
+      textures[i] = loader.load(
+        filePath,
+        () => { if (++loadedCount === totalFrames) { texturesReady = true; console.log('All textures loaded'); } },
+        undefined,
+        (error) => console.error(`Failed to load texture: ${filePath}`, error)
+      );
+    }
 
-        interval = setInterval(() => {
-          mesh.material.map = textures[current];
-          mesh.material.needsUpdate = true;
-          current = (current + 1) % totalFrames;
-        }, 100); // 약 10fps
+    function animate() {
+      if (!playing || !planeMesh || !material) return;
+      material.map = textures[currentFrame];
+      material.needsUpdate = true;
+      currentFrame = (currentFrame + 1) % totalFrames;
+      rafId = requestAnimationFrame(animate);
+    }
+
+    function tryStart() {
+      if (playing) return;
+      if (!planeMesh || !texturesReady) {
+        console.warn('Not ready yet (mesh or textures)');
+        return;
       }
-
-      function stopAnimation() {
-        clearInterval(interval);
-        interval = null;
-        current = 0;
-        plane.setAttribute('visible', false);
+      if (!material) {
+        material = new THREE.MeshBasicMaterial({
+          map: textures[0],
+          transparent: true,
+          side: THREE.DoubleSide,
+        });
+        planeMesh.material = material;
       }
+      plane.setAttribute('visible', true);
+      trackingStatus.style.display = 'none';
+      playing = true;
+      animate();
+    }
 
-      marker.addEventListener('markerFound', startAnimation);
-      marker.addEventListener('markerLost', stopAnimation);
+    function stop() {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = null;
+      playing = false;
+      currentFrame = 0;
+      if (material && textures[0]) {
+        material.map = textures[0];
+        material.needsUpdate = true;
+      }
+      plane.setAttribute('visible', false);
+      trackingStatus.style.display = 'block';
+    }
 
-      window.addEventListener('load', () => {
-        document.querySelector('.arjs-loader').style.display = 'none';
-      });
-    </script>
-  </body>
+    marker.addEventListener('markerFound', () => {
+      console.log('Marker Found');
+      tryStart();
+    });
+    marker.addEventListener('markerLost', () => {
+      console.log('Marker Lost');
+      stop();
+    });
+
+    waitForPlaneMesh(plane).then((mesh) => {
+      console.log('Plane mesh ready');
+      planeMesh = mesh;
+    });
+
+    document.querySelector('a-scene').addEventListener('loaded', () => {
+      loaderEl.style.display = 'none';
+    });
+  </script>
+</body>
 </html>
