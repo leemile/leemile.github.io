@@ -6,26 +6,14 @@
   <title>2D PNG Frame Animation (NFT)</title>
   <style>
     body { margin:0; overflow:hidden; background:#000; }
-    .arjs-loader {
-      position: fixed; inset: 0;
-      display: flex; align-items: center; justify-content: center;
-      background: rgba(0,0,0,0.85); color: white; font-size: 1.1em;
-      z-index: 9999;
-    }
-    .tracking-status {
-      position: fixed; top: 10px; left: 10px;
-      padding: 10px; background: rgba(0,0,0,0.6); color: white;
-      border-radius: 5px; z-index: 10000; display: none;
-    }
-    .debug {
-      position: fixed; bottom: 10px; left: 10px; color: #0f0;
-      background: rgba(0,0,0,0.5); padding: 6px 10px; border-radius: 4px;
-      font-size: 12px; z-index: 10000;
-    }
+    .arjs-loader { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.85); color: white; font-size: 1.1em; z-index: 9999; }
+    .tracking-status { position: fixed; top: 10px; left: 10px; padding: 10px;
+      background: rgba(0,0,0,0.6); color: white; border-radius: 5px; z-index: 10000; display: none; }
+    .debug { position: fixed; bottom: 10px; left: 10px; color: #0f0;
+      background: rgba(0,0,0,0.5); padding: 6px 10px; border-radius: 4px; font-size: 12px; z-index: 10000; }
   </style>
-  <!-- A-Frame 먼저 -->
   <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
-  <!-- AR.js NFT (A-Frame 이후) -->
   <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js/aframe/build/aframe-ar-nft.js"></script>
 </head>
 <body>
@@ -33,36 +21,23 @@
   <div class="tracking-status" id="trackingStatus">Tracking Lost</div>
   <div class="debug" id="debug">init...</div>
 
-  <a-scene
-    embedded
-    vr-mode-ui="enabled:false"
-    renderer="logarithmicDepthBuffer:true"
-    arjs="trackingMethod: best;
-          sourceType: webcam;
+  <a-scene embedded vr-mode-ui="enabled:false" renderer="logarithmicDepthBuffer:true"
+    arjs="trackingMethod: best; sourceType: webcam;
           sourceWidth: 1280; sourceHeight: 720;
           displayWidth: 1280; displayHeight: 720;
-          detectionMode: mono;
-          debugUIEnabled: false;
-          maxDetectionRate: 30;">
-    <a-nft
-      id="nftMarker"
-      type="nft"
-      url="https://leemile.github.io/AR"
-      smooth="true"
-      smoothCount="3"
-      smoothTolerance="0.12"
-      smoothThreshold="1">
-      <a-plane
-        id="animPlane"
+          detectionMode: mono; debugUIEnabled: false; maxDetectionRate: 30;">
+    <a-nft id="nftMarker" type="nft" url="https://leemile.github.io/AR"
+      smooth="true" smoothCount="3" smoothTolerance="0.12" smoothThreshold="1">
+      <a-plane id="animPlane"
         position="0 0 0.02"
         rotation="0 0 0"
-        width="4"
-        height="4"
+        width="4.5"
+        height="4.5"
         visible="false"
         material="color: #000000; transparent:true; opacity:1; side: double; alphaTest:0.01">
       </a-plane>
     </a-nft>
-    <a-entity camera></a-entity>
+    <a-entity id="cameraRig" camera position="0 0 0"></a-entity>
   </a-scene>
 
   <script>
@@ -71,7 +46,6 @@
     const trackingStatus = document.getElementById('trackingStatus');
     const loaderEl = document.querySelector('.arjs-loader');
     const debugEl = document.getElementById('debug');
-
     const totalFrames = 23;
     const textures = [];
     let texturesReady = false;
@@ -81,6 +55,7 @@
     let rafId = null;
     let playing = false;
     let lostTimer = null;
+    let forceShow = false; // f 키 토글
 
     const setDebug = (msg) => { debugEl.textContent = msg; };
 
@@ -99,7 +74,7 @@
       });
     }
 
-    // 텍스처 로드 (절대경로)
+    // 텍스처 로드
     const loader = new THREE.TextureLoader();
     let loadedCount = 0;
     for (let i = 0; i < totalFrames; i++) {
@@ -123,6 +98,7 @@
       if (!playing || !planeMesh || !material) return;
       material.map = textures[currentFrame];
       material.needsUpdate = true;
+      setDebug(`Playing frame ${currentFrame}${forceShow ? ' (force)' : ''}`);
       currentFrame = (currentFrame + 1) % totalFrames;
       rafId = requestAnimationFrame(animate);
     }
@@ -131,6 +107,16 @@
       if (planeMesh && material && textures[0]) {
         material.map = textures[0];
         material.needsUpdate = true;
+      }
+    }
+
+    function applyRenderOrder() {
+      if (plane.object3D) {
+        plane.object3D.renderOrder = 999;
+        plane.object3D.traverse(obj => { if (obj.isMesh) obj.renderOrder = 999; });
+      }
+      if (planeMesh) {
+        planeMesh.renderOrder = 999;
       }
     }
 
@@ -150,25 +136,25 @@
           depthWrite: false
         });
         planeMesh.material = material;
-        // 항상 위에 그리기
-        plane.object3D.renderOrder = 999;
+        applyRenderOrder();
       }
       showFirstFrame();
       plane.setAttribute('visible', true);
-      trackingStatus.style.display = 'none';
+      trackingStatus.style.display = forceShow ? 'none' : 'none';
       if (playing) return;
       playing = true;
       console.log('Animation start');
-      setDebug('Playing');
+      setDebug(`Playing frame ${currentFrame}${forceShow ? ' (force)' : ''}`);
       animate();
     }
 
     function stop() {
+      if (forceShow) return; // 강제 표시 모드면 멈추지 않음
       if (rafId) cancelAnimationFrame(rafId);
       rafId = null;
       playing = false;
       currentFrame = 0;
-      showFirstFrame(); // 기본 프레임 유지
+      showFirstFrame();
       plane.setAttribute('visible', false);
       trackingStatus.style.display = 'block';
       console.log('Animation stop');
@@ -182,7 +168,6 @@
       tryStart();
     });
 
-    // Lost 시 1500ms 지연 후 진짜 Lost로 처리
     marker.addEventListener('markerLost', () => {
       console.log('Marker Lost (debounce start)');
       setDebug('Lost? wait');
@@ -190,17 +175,36 @@
       lostTimer = setTimeout(() => {
         console.log('Marker Lost (confirmed)');
         stop();
-      }, 1500);
+      }, 2000);
     });
 
     waitForPlaneMesh(plane).then((mesh) => {
       console.log('Plane mesh ready');
       planeMesh = mesh;
       setDebug('Mesh ready');
+      applyRenderOrder();
     });
 
     document.querySelector('a-scene').addEventListener('loaded', () => {
       loaderEl.style.display = 'none';
+    });
+
+    // f 키로 강제 표시/해제 (마커 무시)
+    window.addEventListener('keydown', (e) => {
+      if (e.key.toLowerCase() === 'f') {
+        forceShow = !forceShow;
+        if (forceShow) {
+          setDebug('Force show ON');
+          // 카메라 앞에 강제 위치
+          plane.object3D.position.set(0, 0, -3);
+          plane.object3D.rotation.set(0, 0, 0);
+          plane.setAttribute('visible', true);
+          tryStart();
+        } else {
+          setDebug('Force show OFF');
+          stop();
+        }
+      }
     });
   </script>
 </body>
