@@ -107,7 +107,13 @@
       const filePath = `https://leemile.github.io/frames/frame_${num}.png`;
       textures[i] = loader.load(
         filePath,
-        () => { if (++loadedCount === totalFrames) { texturesReady = true; console.log('All textures loaded'); setDebug('Textures ready'); } },
+        () => {
+          if (++loadedCount === totalFrames) {
+            texturesReady = true;
+            console.log('All textures loaded');
+            setDebug('Textures ready');
+          }
+        },
         undefined,
         (error) => console.error(`Failed to load texture: ${filePath}`, error)
       );
@@ -139,9 +145,13 @@
           map: textures[0],
           transparent: true,
           side: THREE.DoubleSide,
-          alphaTest: 0.01
+          alphaTest: 0.01,
+          depthTest: false,
+          depthWrite: false
         });
         planeMesh.material = material;
+        // 항상 위에 그리기
+        plane.object3D.renderOrder = 999;
       }
       showFirstFrame();
       plane.setAttribute('visible', true);
@@ -172,7 +182,7 @@
       tryStart();
     });
 
-    // Lost 시 1000ms 지연 후 진짜 Lost로 처리
+    // Lost 시 1500ms 지연 후 진짜 Lost로 처리
     marker.addEventListener('markerLost', () => {
       console.log('Marker Lost (debounce start)');
       setDebug('Lost? wait');
@@ -180,7 +190,7 @@
       lostTimer = setTimeout(() => {
         console.log('Marker Lost (confirmed)');
         stop();
-      }, 1000);
+      }, 1500);
     });
 
     waitForPlaneMesh(plane).then((mesh) => {
