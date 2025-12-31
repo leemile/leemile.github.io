@@ -1,31 +1,44 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>AR Animation Stable</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no" />
+  <title>AR Animation Diagnostics</title>
+
   <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js/aframe/build/aframe-ar-nft.js"></script>
+
   <style>
     body { margin:0; overflow:hidden; background:#000; }
-    #loader { position:fixed; inset:0; display:flex; justify-content:center; align-items:center; background:#000; color:#fff; z-index:999; }
-    #dbg { position:fixed; left:10px; bottom:10px; z-index:1000; color:#0f0; background:rgba(0,0,0,.5); padding:6px 10px; border-radius:4px; font-size:12px; }
+    #hud {
+      position: fixed; left: 10px; top: 10px; z-index: 99999;
+      font: 12px/1.35 monospace; color: #0f0;
+      background: rgba(0,0,0,.6); padding: 10px; border-radius: 6px;
+      max-width: 92vw; white-space: pre-wrap;
+    }
+    #btns { margin-top: 8px; display:flex; gap:8px; flex-wrap:wrap; }
+    button { font: 12px monospace; padding: 6px 10px; }
   </style>
 </head>
 <body>
-  <div id="loader"><p>시스템 안정화 로딩 중...</p></div>
-  <div id="dbg">init...</div>
+  <div id="hud">
+loading...
+<div id="btns">
+  <button id="forceBtn">FORCE: OFF</button>
+  <button id="snapBtn">LOG POS</button>
+</div>
+  </div>
 
   <a-scene
     embedded
     vr-mode-ui="enabled:false"
-    renderer="logarithmicDepthBuffer:true; antialias:true; alpha:true; precision:highp; colorManagement:true;"
+    renderer="antialias:true; alpha:true;"
     arjs="trackingMethod: best; sourceType: webcam;
           sourceWidth: 640; sourceHeight: 480; displayWidth: 640; displayHeight: 480;
           debugUIEnabled: false;">
 
     <a-nft
-      id="nft-target"
+      id="nft"
       type="nft"
       url="https://leemile.github.io/AR"
       smooth="true"
@@ -33,67 +46,106 @@
       smoothTolerance="0.08"
       smoothThreshold="2">
 
+      <!-- 마커 위 plane (원점에 붙여서 시작) -->
       <a-plane
-        id="ani-plane"
+        id="plane"
         position="0 0 0.02"
         rotation="-90 0 0"
-        width="2.5" height="2.5"
+        width="2.0" height="2.0"
         visible="false">
       </a-plane>
     </a-nft>
 
-    <a-entity camera></a-entity>
+    <a-entity id="cam" camera></a-entity>
   </a-scene>
 
   <script>
     window.addEventListener('load', () => {
-      const dbg = (msg) => document.getElementById('dbg').textContent = msg;
+      const hud = document.getElementById('hud');
+      const forceBtn = document.getElementById('forceBtn');
+      const snapBtn = document.getElementById('snapBtn');
 
-      const nft = document.querySelector('#nft-target');
-      const plane = document.querySelector('#ani-plane');
+      const nft = document.getElementById('nft');
+      const plane = document.getElementById('plane');
 
       const totalFrames = 22;
       const textures = new Array(totalFrames);
 
+      let loaded = 0;
       let texturesReady = false;
+
       let planeMesh = null;
       let material = null;
 
-      let currentIdx = 0;
-      let lastUpdate = 0;
-      let rafId = null;
       let playing = false;
+      let rafId = null;
+      let frame = 0;
+      let last = 0;
+
+      let force = false;
+
+      const state = {
+        nftLoaded: false,
+        tracking: false,
+        meshReady: false,
+        texturesReady: false,
+        playing: false,
+        frame: 0,
+        lastTex: '',
+      };
+
+      function renderHUD() {
+        hud.firstChild.nodeValue =
+`NFT loaded: ${state.nftLoaded}
+tracking(nft.visible): ${state.tracking}
+meshReady: ${state.meshReady}
+texturesReady: ${state.texturesReady} (${loaded}/${totalFrames})
+playing: ${state.playing}
+frame: ${state.frame}
+force: ${force}
+lastTex: ${state.lastTex}
+`;
+      }
+
+      function logPlanePos(label) {
+        const wp = new THREE.Vector3();
+        const cp = new THREE.Vector3();
+        plane.object3D.getWorldPosition(wp);
+        const cam = document.getElementById('cam');
+        cam.object3D.getWorldPosition(cp);
+        console.log(label, { planeWorld: wp, camWorld: cp, nftVisible: nft.object3D.visible, planeVisible: plane.getAttribute('visible') });
+      }
 
       // 1) 텍스처 로드
-      const loader = new THREE.TextureLoader();
-      loader.setCrossOrigin('anonymous');
-      let loaded = 0;
+      const texLoader = new THREE.TextureLoader();
+      texLoader.setCrossOrigin('anonymous');
 
       for (let i = 0; i < totalFrames; i++) {
-        const frameNum = String(i).padStart(3, '0');
-        const url = `https://leemile.github.io/frames/frame_${frameNum}.png`;
-        loader.load(url, (tex) => {
+        const num = String(i).padStart(3,'0');
+        const url = `https://leemile.github.io/frames/frame_${num}.png`;
+        texLoader.load(url, (tex) => {
           textures[i] = tex;
           loaded++;
           if (loaded === totalFrames) {
             texturesReady = true;
-            console.log('All textures loaded');
-            dbg('textures ready');
+            state.texturesReady = true;
           }
+          state.lastTex = `OK ${num}`;
+          renderHUD();
         }, undefined, (err) => {
-          console.error('Texture load failed:', url, err);
+          state.lastTex = `FAIL ${num}`;
+          console.error('Texture fail:', url, err);
+          renderHUD();
         });
       }
 
-      // 2) mesh 준비되면 material을 우리가 직접 고정
-      const meshCheck = setInterval(() => {
-        const mesh = plane.getObject3D('mesh');
-        if (!mesh) return;
-        clearInterval(meshCheck);
+      // 2) mesh 준비되면 material 강제 장착 (A-Frame material 개입 차단)
+      const meshTimer = setInterval(() => {
+        const m = plane.getObject3D('mesh');
+        if (!m) return;
+        clearInterval(meshTimer);
 
-        planeMesh = mesh;
-
-        // A-Frame material 대신 우리가 직접 three material로 고정 (가장 중요)
+        planeMesh = m;
         material = new THREE.MeshBasicMaterial({
           map: null,
           transparent: true,
@@ -106,23 +158,25 @@
         plane.object3D.renderOrder = 999;
         planeMesh.renderOrder = 999;
 
-        console.log('Mesh ready');
-        dbg('mesh ready');
+        state.meshReady = true;
+        renderHUD();
       }, 50);
 
       function setFrame(i) {
         if (!material || !textures[i]) return;
         material.map = textures[i];
         material.needsUpdate = true;
+        state.frame = i;
       }
 
       function loop(t) {
         if (!playing) return;
-        if (t - lastUpdate > 80) { // ~12fps
-          setFrame(currentIdx);
-          currentIdx = (currentIdx + 1) % totalFrames;
-          lastUpdate = t;
-          dbg(`playing ${currentIdx}`);
+        if (t - last > 80) {
+          setFrame(frame);
+          frame = (frame + 1) % totalFrames;
+          last = t;
+          state.playing = true;
+          renderHUD();
         }
         rafId = requestAnimationFrame(loop);
       }
@@ -131,38 +185,70 @@
         if (playing) return;
         if (!texturesReady || !planeMesh || !material) return;
 
+        // 보이게
         plane.setAttribute('visible', true);
-        currentIdx = 0;
-        lastUpdate = 0;
+        frame = 0;
+        last = 0;
         setFrame(0);
 
         playing = true;
+        state.playing = true;
+        renderHUD();
+
         rafId = requestAnimationFrame(loop);
-        console.log('Animation Started');
+        console.log('START');
+        logPlanePos('START POS');
       }
 
       function stop() {
         if (!playing) return;
         playing = false;
+        state.playing = false;
         if (rafId) cancelAnimationFrame(rafId);
         rafId = null;
         plane.setAttribute('visible', false);
-        console.log('Animation Stopped');
-        dbg('stopped');
+        renderHUD();
+        console.log('STOP');
       }
 
-      // 3) NFT 추적 상태를 “이벤트가 아니라” visible로 폴링
-      //    nft.object3D.visible 이 true면 추적중인 상태로 보는 방식 (가장 안정적)
+      // 3) 추적 상태 감시 (이벤트 + visible 폴링)
+      nft.addEventListener('markerFound', () => console.log('markerFound'));
+      nft.addEventListener('markerLost', () => console.log('markerLost'));
+
       setInterval(() => {
-        const tracking = nft.object3D && nft.object3D.visible;
-        if (tracking) start();
+        state.tracking = !!(nft.object3D && nft.object3D.visible);
+        renderHUD();
+
+        if (force) {
+          // 마커 무시하고 카메라 앞에 강제로 띄우기
+          plane.object3D.position.set(0, 0, -2);
+          plane.object3D.rotation.set(0, 0, 0);
+          plane.object3D.updateMatrixWorld(true);
+          start();
+          return;
+        }
+
+        // 마커 추적 중이면 시작, 아니면 정지
+        if (state.tracking) start();
         else stop();
       }, 100);
 
       window.addEventListener('arjs-nft-loaded', () => {
-        document.getElementById('loader').style.display = 'none';
-        dbg('nft loaded');
+        state.nftLoaded = true;
+        renderHUD();
       });
+
+      forceBtn.addEventListener('click', () => {
+        force = !force;
+        forceBtn.textContent = `FORCE: ${force ? 'ON' : 'OFF'}`;
+        renderHUD();
+      });
+
+      snapBtn.addEventListener('click', () => {
+        logPlanePos('SNAP POS');
+      });
+
+      renderHUD();
     });
   </script>
 </body>
