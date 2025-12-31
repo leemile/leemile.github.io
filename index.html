@@ -3,212 +3,149 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no" />
-  <title>AR NFT Frame Animation (Clean Rebuild)</title>
-
-  <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js/aframe/build/aframe-ar-nft.js"></script>
-
+  <title>AR.js THREE - Frame Animation (HIRO)</title>
   <style>
     html, body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#000; }
-
-    /* 핵심: 레이어 강제 고정 (비디오는 아래, WebGL은 위) */
-    video, canvas { position: absolute !important; top:0; left:0; }
-    video { z-index: 1 !important; }
-    canvas.a-canvas { z-index: 10 !important; }
-
-    /* HUD */
     #hud {
-      position: fixed; top: 10px; left: 10px; z-index: 99999;
-      font: 12px/1.35 monospace; color: #0f0;
-      background: rgba(0,0,0,0.65);
-      padding: 10px; border-radius: 8px; white-space: pre;
-      max-width: 94vw;
+      position:fixed; left:10px; top:10px; z-index:9999;
+      font:12px/1.35 monospace; color:#0f0;
+      background:rgba(0,0,0,.6); padding:10px; border-radius:8px; white-space:pre;
+      max-width:94vw;
     }
-    #hud button { font: 12px monospace; padding: 6px 10px; margin-top: 8px; }
   </style>
+
+  <!-- three.js -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.125.1/build/three.min.js"></script>
+  <!-- AR.js (three.js build) -->
+  <script src="https://cdn.jsdelivr.net/npm/@ar-js-org/ar.js@3.4.7/three.js/build/ar-threex.js"></script>
 </head>
 <body>
-  <div id="hud">
-booting...
-<button id="forceBtn">FORCE: OFF</button>
-  </div>
-
-  <a-scene
-    embedded
-    vr-mode-ui="enabled:false"
-    renderer="antialias:true; alpha:true;"
-    arjs="trackingMethod: best;
-          sourceType: webcam;
-          sourceWidth: 640; sourceHeight: 480;
-          displayWidth: 640; displayHeight: 480;
-          debugUIEnabled: false;">
-
-    <a-nft
-      id="nft"
-      type="nft"
-      url="https://leemile.github.io/AR"
-      smooth="true"
-      smoothCount="5"
-      smoothTolerance="0.08"
-      smoothThreshold="2">
-      <!-- THREE.Mesh를 붙일 컨테이너 -->
-      <a-entity id="container" position="0 0 0.02" rotation="-90 0 0" visible="false"></a-entity>
-    </a-nft>
-
-    <a-entity id="cam" camera></a-entity>
-  </a-scene>
+  <div id="hud">boot...</div>
 
   <script>
-    window.addEventListener('load', () => {
-      const hud = document.getElementById('hud');
-      const forceBtn = document.getElementById('forceBtn');
+    const HUD = document.getElementById('hud');
+    const log = (s) => HUD.textContent = s;
 
-      const nft = document.getElementById('nft');
-      const container = document.getElementById('container');
-      const cam = document.getElementById('cam');
+    const TOTAL = 22;
+    const FRAME_URL = (i) => `https://leemile.github.io/frames/frame_${String(i).padStart(3,'0')}.png`;
 
-      const totalFrames = 22;
-      const textures = new Array(totalFrames);
+    let renderer, scene, camera;
+    let arToolkitSource, arToolkitContext;
+    let markerRoot;
+    let plane, material, textures = [];
+    let loaded = 0;
 
-      let loaded = 0;
-      let texturesReady = false;
+    let playing = false;
+    let frame = 0;
+    let last = 0;
 
-      let mesh = null;
-      let material = null;
+    // 1) three 기본 세팅
+    scene = new THREE.Scene();
+    camera = new THREE.Camera();
+    scene.add(camera);
 
-      let playing = false;
-      let rafId = null;
-      let idx = 0;
-      let last = 0;
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setClearColor(new THREE.Color('black'), 0);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.domElement.style.position = 'absolute';
+    renderer.domElement.style.top = '0';
+    renderer.domElement.style.left = '0';
+    renderer.domElement.style.zIndex = '2';
+    document.body.appendChild(renderer.domElement);
 
-      let force = false;
+    // 2) AR 소스(카메라)
+    arToolkitSource = new THREEx.ArToolkitSource({ sourceType: 'webcam' });
+    arToolkitSource.init(() => onResize());
+    window.addEventListener('resize', () => onResize());
 
-      function setHud(extra = '') {
-        const tracking = !!(nft.object3D && nft.object3D.visible);
-        hud.firstChild.nodeValue =
-`tracking: ${tracking}
-force: ${force}
-loaded: ${loaded}/${totalFrames}
-container.visible: ${container.getAttribute('visible')}
-playing: ${playing}
-frame: ${idx}
-${extra}
-`;
+    function onResize(){
+      arToolkitSource.onResizeElement();
+      arToolkitSource.copyElementSizeTo(renderer.domElement);
+      if (arToolkitContext && arToolkitContext.arController) {
+        arToolkitSource.copyElementSizeTo(arToolkitContext.arController.canvas);
       }
+    }
 
-      // 1) 텍스처 로드
-      const texLoader = new THREE.TextureLoader();
-      texLoader.setCrossOrigin('anonymous');
-
-      for (let i = 0; i < totalFrames; i++) {
-        const num = String(i).padStart(3, '0');
-        const url = `https://leemile.github.io/frames/frame_${num}.png`;
-        texLoader.load(url, (tex) => {
-          textures[i] = tex;
-          loaded++;
-          if (loaded === totalFrames) texturesReady = true;
-          setHud(`lastTex OK ${num}`);
-        }, undefined, (err) => {
-          console.error('Texture load failed:', url, err);
-          setHud(`lastTex FAIL ${num}`);
-        });
-      }
-
-      // 2) THREE mesh를 직접 생성해서 붙이기 (A-Frame material 충돌 제거)
-      function ensureMesh() {
-        if (mesh) return;
-
-        const geo = new THREE.PlaneGeometry(2.2, 2.2);
-        material = new THREE.MeshBasicMaterial({
-          map: null,
-          transparent: true,
-          side: THREE.DoubleSide,
-          depthTest: false,
-          depthWrite: false
-        });
-
-        mesh = new THREE.Mesh(geo, material);
-        mesh.renderOrder = 999;
-
-        container.object3D.renderOrder = 999;
-        container.object3D.add(mesh);
-
-        console.log('THREE mesh created/attached');
-      }
-
-      function setFrame(i) {
-        if (!material || !textures[i]) return;
-        material.map = textures[i];
-        material.needsUpdate = true;
-      }
-
-      function loop(t) {
-        if (!playing) return;
-        if (t - last > 80) { // ~12fps
-          setFrame(idx);
-          idx = (idx + 1) % totalFrames;
-          last = t;
-          setHud();
-        }
-        rafId = requestAnimationFrame(loop);
-      }
-
-      function start() {
-        if (playing) return;
-        if (!texturesReady) return;
-
-        ensureMesh();
-
-        // FORCE 모드면 카메라 앞에 고정
-        if (force) {
-          container.object3D.position.set(0, 0, -2.0);
-          container.object3D.rotation.set(0, 0, 0);
-          // 카메라를 향하도록(회전 문제 방지)
-          container.object3D.lookAt(cam.object3D.position);
-        }
-
-        container.setAttribute('visible', true);
-
-        idx = 0;
-        last = 0;
-        setFrame(0);
-
-        playing = true;
-        rafId = requestAnimationFrame(loop);
-        console.log('START');
-        setHud('START');
-      }
-
-      function stop() {
-        if (!playing) return;
-        playing = false;
-        if (rafId) cancelAnimationFrame(rafId);
-        rafId = null;
-
-        container.setAttribute('visible', false);
-        console.log('STOP');
-        setHud('STOP');
-      }
-
-      // 3) 추적 상태는 nft.object3D.visible로 폴링 (NFT에서 이벤트 불안정 대비)
-      setInterval(() => {
-        const tracking = !!(nft.object3D && nft.object3D.visible);
-        if (force) { start(); return; }
-        if (tracking) start();
-        else stop();
-      }, 100);
-
-      // 4) FORCE 토글 (마커 없이도 무조건 보이게)
-      forceBtn.addEventListener('click', () => {
-        force = !force;
-        forceBtn.textContent = `FORCE: ${force ? 'ON' : 'OFF'}`;
-        setHud(force ? 'FORCE ON' : 'FORCE OFF');
-        if (!force) stop();
-      });
-
-      // 시작 HUD
-      setHud('booted');
+    // 3) AR 컨텍스트
+    arToolkitContext = new THREEx.ArToolkitContext({
+      cameraParametersUrl: 'https://cdn.jsdelivr.net/npm/@ar-js-org/ar.js@3.4.7/three.js/data/camera_para.dat',
+      detectionMode: 'mono',
     });
+
+    arToolkitContext.init(() => {
+      camera.projectionMatrix.copy(arToolkitContext.getProjectionMatrix());
+    });
+
+    // 4) 마커(HIRO)
+    markerRoot = new THREE.Group();
+    scene.add(markerRoot);
+
+    const markerControls = new THREEx.ArMarkerControls(arToolkitContext, markerRoot, {
+      type: 'pattern',
+      patternUrl: 'https://cdn.jsdelivr.net/npm/@ar-js-org/ar.js@3.4.7/three.js/data/patt.hiro'
+    });
+
+    // 5) plane + 텍스처 애니메이션
+    const texLoader = new THREE.TextureLoader();
+    for (let i = 0; i < TOTAL; i++) {
+      texLoader.load(FRAME_URL(i), (tex) => {
+        textures[i] = tex;
+        loaded++;
+      }, undefined, (e) => console.error('texture fail', i, e));
+    }
+
+    material = new THREE.MeshBasicMaterial({
+      transparent: true,
+      side: THREE.DoubleSide,
+      depthTest: false,
+      depthWrite: false
+    });
+
+    const geo = new THREE.PlaneGeometry(1.2, 1.2); // 마커 위 크기
+    plane = new THREE.Mesh(geo, material);
+    plane.rotation.x = -Math.PI / 2; // 마커 평면에 눕힘
+    plane.position.y = 0.01;         // z-fighting 방지(살짝 띄움)
+    markerRoot.add(plane);
+
+    function setFrame(i) {
+      const t = textures[i];
+      if (!t) return;
+      material.map = t;
+      material.needsUpdate = true;
+    }
+
+    // 6) render loop
+    function animate(now){
+      requestAnimationFrame(animate);
+
+      if (arToolkitSource.ready !== false) {
+        arToolkitContext.update(arToolkitSource.domElement);
+      }
+
+      const visible = markerRoot.visible;
+      const ready = (loaded === TOTAL);
+
+      // HUD
+      log(
+`marker visible: ${visible}
+textures: ${loaded}/${TOTAL}
+frame: ${frame}
+`
+      );
+
+      // 애니메이션
+      if (visible && ready) {
+        if (now - last > 80) { // 12fps
+          setFrame(frame);
+          frame = (frame + 1) % TOTAL;
+          last = now;
+        }
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    animate(0);
   </script>
 </body>
 </html>
