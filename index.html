@@ -49,42 +49,39 @@
     window.addEventListener('load', () => {
       const nft = document.querySelector('#nft-target');
       const plane = document.querySelector('#ani-plane');
-      const totalFrames = 22; // frame_000 ~ frame_021
+      const totalFrames = 22;
       const textures = [];
+      
       let currentIdx = 0;
       let animationId = null;
       let lastUpdate = 0;
       let planeMesh = null;
       let texturesReady = false;
+      let isMarkerVisible = false; // 마커가 현재 보이는지 상태 추적
 
-      // 텍스처 미리 로드 (절대경로)
+      // 텍스처 로드 설정 (CORS 호환성 강화)
       const loader = new THREE.TextureLoader();
+      loader.setCrossOrigin('anonymous'); 
+
       let loaded = 0;
       for (let i = 0; i < totalFrames; i++) {
         const frameNum = String(i).padStart(3, '0');
-        const tex = loader.load(
+        loader.load(
           `https://leemile.github.io/frames/frame_${frameNum}.png`,
-          () => { if (++loaded === totalFrames) texturesReady = true; }
+          (tex) => {
+            textures[i] = tex;
+            if (++loaded === totalFrames) {
+              console.log('All textures loaded');
+              texturesReady = true;
+              tryStart(); // 로딩 끝나면 즉시 시작 시도
+            }
+          }
         );
-        textures.push(tex);
       }
 
-      // plane mesh 준비
-      function waitForPlaneMesh() {
-        return new Promise((resolve) => {
-          const check = () => {
-            const m = plane.getObject3D('mesh');
-            if (m) return resolve(m);
-            setTimeout(check, 50);
-          };
-          plane.addEventListener('object3dset', (e) => { if (e.detail.type === 'mesh') check(); });
-          plane.addEventListener('loaded', check);
-          check();
-        });
-      }
-
+      // 애니메이션 루프
       function updateAnim(time) {
-        if (time - lastUpdate > 80) { // 약 12 FPS
+        if (time - lastUpdate > 80) { 
           if (planeMesh && textures[currentIdx]) {
             planeMesh.material.map = textures[currentIdx];
             planeMesh.material.needsUpdate = true;
@@ -95,37 +92,61 @@
         animationId = requestAnimationFrame(updateAnim);
       }
 
-      nft.addEventListener('markerFound', () => {
-        if (!planeMesh || !texturesReady) return;
+      // 시작 시도 함수 (핵심 수정)
+      function tryStart() {
+        // 1. 마커가 안 보이면 시작 안 함
+        // 2. 리소스(메시, 텍스처)가 준비 안 됐으면 시작 안 함
+        if (!isMarkerVisible || !planeMesh || !texturesReady) return;
+
         plane.setAttribute('visible', true);
         if (!animationId) {
+          console.log('Animation Started');
           animationId = requestAnimationFrame(updateAnim);
         }
-      });
+      }
 
-      nft.addEventListener('markerLost', () => {
+      function stopAnim() {
         plane.setAttribute('visible', false);
         if (animationId) {
           cancelAnimationFrame(animationId);
           animationId = null;
         }
+      }
+
+      nft.addEventListener('markerFound', () => {
+        console.log('Marker Found');
+        isMarkerVisible = true;
+        tryStart(); // 발견 즉시 시작 시도
+      });
+
+      nft.addEventListener('markerLost', () => {
+        console.log('Marker Lost');
+        isMarkerVisible = false;
+        stopAnim();
       });
 
       window.addEventListener('arjs-nft-loaded', () => {
         document.querySelector('#loader').style.display = 'none';
       });
 
-      waitForPlaneMesh().then((m) => {
-        planeMesh = m;
-        if (planeMesh.material) {
-          planeMesh.material.depthTest = false;
-          planeMesh.material.depthWrite = false;
+      // Mesh 감지
+      const checkMesh = setInterval(() => {
+        const mesh = plane.getObject3D('mesh');
+        if (mesh) {
+          clearInterval(checkMesh);
+          planeMesh = mesh;
+          
+          // 렌더링 순서 최상위로 (가려짐 방지)
+          planeMesh.renderOrder = 999;
+          if (planeMesh.material) {
+            planeMesh.material.depthTest = false;
+            planeMesh.material.depthWrite = false;
+          }
+          
+          console.log('Mesh ready');
+          tryStart(); // 메시 준비되면 즉시 시작 시도
         }
-        if (plane.object3D) {
-          plane.object3D.renderOrder = 999;
-          plane.object3D.traverse(obj => { if (obj.isMesh) obj.renderOrder = 999; });
-        }
-      });
+      }, 100);
     });
   </script>
 </body>
