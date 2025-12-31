@@ -33,19 +33,19 @@
     renderer="logarithmicDepthBuffer:true"
     arjs="trackingMethod: best;
           sourceType: webcam;
-          sourceWidth: 640; sourceHeight: 480;
-          displayWidth: 640; displayHeight: 480;
+          sourceWidth: 1280; sourceHeight: 720;
+          displayWidth: 1280; displayHeight: 720;
           detectionMode: mono;
           debugUIEnabled: false;
           maxDetectionRate: 30;">
     <a-nft
       id="nftMarker"
       type="nft"
-      url="https://leemile.github.io/AR"  <!-- 절대경로로 고정 -->
+      url="https://leemile.github.io/AR"  <!-- 절대경로 -->
       smooth="true"
-      smoothCount="10"
-      smoothTolerance="0.05"
-      smoothThreshold="15">
+      smoothCount="5"
+      smoothTolerance="0.08"
+      smoothThreshold="2">
       <a-plane
         id="animPlane"
         position="0 0 0"
